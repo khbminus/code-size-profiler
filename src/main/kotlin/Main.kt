@@ -109,7 +109,13 @@ class Diff : CliktCommand(help = "get difference between to size files") {
                 """.trimMargin().trim()
             )
             EXT.HTML -> {
-                TODO()
+                outputFile?.writeText(
+                    deltaContent.entries.joinToString(prefix = """
+                        <!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Difference between ${file1.name} and ${file2.name}</title></head><body><table><thead><tr><th>Ir Element</th><th>Size in IR instruction, &#916;</th></tr></thead><tbody>
+                    """.trimIndent(), postfix = "</tbody></table></body></html>", separator = "") { (k, v) ->
+                        "<tr><td>${k.escape()}</td><td>${v.toString().escape()}</td></tr>"
+                    }
+                )
             }
          }
     }
@@ -146,6 +152,12 @@ class Diff : CliktCommand(help = "get difference between to size files") {
         val right = (columnSize - length + 1) / 2
         return "${" ".repeat(left)}$this${" ".repeat(right)}"
     }
+
+    private fun String.escape() = replace("&", "&amp;")
+    .replace("<", "&lt;")
+    .replace(">", "&gt;")
+    .replace("\"", "&quot;")
+    .replace("'", "&#039;")
 }
 
 
