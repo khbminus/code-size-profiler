@@ -54,9 +54,7 @@ class Dominators : CliktCommand(help = "Build dominator tree and get retained si
         val retainedSizes = nodes.mapValues { (_, node) -> dominatorTree.getRetainedSize(node) }
         when (determineExtension()) {
             EXT.DISPLAY -> println(json.encodeToString(retainedSizes))
-
             EXT.JSON -> outputFile?.writeText(Json.encodeToString(retainedSizes))
-
             EXT.JS -> outputFile?.writeText(
                 """
                 | export const kotlinRetainedSize = ${Json.encodeToString(retainedSizes)}
@@ -105,19 +103,25 @@ class Diff : CliktCommand(help = "get difference between to size files") {
             EXT.JSON -> outputFile?.writeText(json.encodeToString(deltaContent))
             EXT.JS -> outputFile?.writeText(
                 """
-                | export const kotlinRetainedSize = ${Json.encodeToString(deltaContent)}
+                | export const kotlinDifferenceInfo = ${Json.encodeToString(deltaContent)}
                 """.trimMargin().trim()
             )
+
             EXT.HTML -> {
                 outputFile?.writeText(
-                    deltaContent.entries.joinToString(prefix = """
+                    deltaContent
+                        .entries
+                        .sortedBy { (_, v) -> -v }
+                        .joinToString(
+                            prefix = """
                         <!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Difference between ${file1.name} and ${file2.name}</title></head><body><table><thead><tr><th>Ir Element</th><th>Size in IR instruction, &#916;</th></tr></thead><tbody>
-                    """.trimIndent(), postfix = "</tbody></table></body></html>", separator = "") { (k, v) ->
-                        "<tr><td>${k.escape()}</td><td>${v.toString().escape()}</td></tr>"
-                    }
+                    """.trimIndent(), postfix = "</tbody></table></body></html>", separator = ""
+                        ) { (k, v) ->
+                            "<tr><td>${k.escape()}</td><td>${v.toString().escape()}</td></tr>"
+                        }
                 )
             }
-         }
+        }
     }
 
     private enum class EXT {
@@ -135,7 +139,7 @@ class Diff : CliktCommand(help = "get difference between to size files") {
     }
 
     private fun <A, B> Map<A, B>.printTable(keyName: String, valueName: String) {
-        val values = mapValues { (_, it) ->  it.toString() }.mapKeys { (it, _) -> it.toString() }
+        val values = mapValues { (_, it) -> it.toString() }.mapKeys { (it, _) -> it.toString() }
         val keyColumnSize = 2 + keyName.length.coerceAtLeast(values.maxOf { (k, _) -> k.length })
         val valueColumnSize = 2 + valueName.length.coerceAtLeast(values.maxOf { (_, v) -> v.length })
         println("|${keyName.padCenter(keyColumnSize)}|${valueName.padCenter(valueColumnSize)}|")
@@ -154,10 +158,10 @@ class Diff : CliktCommand(help = "get difference between to size files") {
     }
 
     private fun String.escape() = replace("&", "&amp;")
-    .replace("<", "&lt;")
-    .replace(">", "&gt;")
-    .replace("\"", "&quot;")
-    .replace("'", "&#039;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace("\"", "&quot;")
+        .replace("'", "&#039;")
 }
 
 
