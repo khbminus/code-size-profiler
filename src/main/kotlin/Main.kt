@@ -12,7 +12,15 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
 @Serializable
-data class EdgeEntry(val source: String, val target: String, val description: String, val isTargetContagious: Boolean)
+private data class EdgeEntry(
+    val source: String,
+    val target: String,
+    val description: String,
+    val isTargetContagious: Boolean
+)
+
+@Serializable
+private data class NodeEntry(val size: Int, val type: String)
 
 data class IrNode(val name: String, override val value: Int) : Vertex(value)
 
@@ -42,7 +50,7 @@ class Dominators : CliktCommand(help = "Build dominator tree and get retained si
 
     override fun run() {
         val edgeEntries = Json.decodeFromString<List<EdgeEntry>>(graphDataFile.readText())
-        val sizes = Json.decodeFromString<Map<String, Int>>(irSizeFile.readText())
+        val sizes = Json.decodeFromString<Map<String, NodeEntry>>(irSizeFile.readText()).mapValues { (_, v) -> v.size }
 
         val nodes = sizes.mapValues { (name, size) -> IrNode(name, size) }.toMutableMap()
         val edges = edgeEntries.filter { it.source != it.target }.map {
@@ -91,8 +99,10 @@ class Diff : CliktCommand(help = "get difference between to size files") {
 
     private val outputFile by option("-o", "--output").file()
     override fun run() {
-        val contentLeft = Json.decodeFromString<Map<String, Int>>(file1.readText())
-        val contentRight = Json.decodeFromString<Map<String, Int>>(file2.readText())
+        val contentLeft = // TODO: check node type
+            Json.decodeFromString<Map<String, NodeEntry>>(file1.readText()).mapValues { (_, v) -> v.size }
+        val contentRight =
+            Json.decodeFromString<Map<String, NodeEntry>>(file2.readText()).mapValues { (_, v) -> v.size }
         val deltaContent = buildMap {
             (contentLeft.keys + contentRight.keys).forEach {
                 put(it, contentRight.getOrDefault(it, 0) - contentLeft.getOrDefault(it, 0))
