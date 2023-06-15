@@ -8,6 +8,7 @@ class DifferenceGraph private constructor(
     private val vertexMap: Map<Vertex, DifferenceVertex>
 ) {
     val adjacencyList: Map<DifferenceVertex, List<DifferenceEdge>> = buildMap {
+        vertexMap.values.forEach { put(it, emptyList()) }
         putAll(edges.groupBy { it.from })
         edges.map { it.copy(from = it.to, to = it.from) }.groupBy { it.from }.forEach { (k, v) ->
             compute(k) { _, list ->
@@ -20,7 +21,7 @@ class DifferenceGraph private constructor(
     val metaNodeAdjacencyList: Map<MetaNode, MutableSet<MetaNode>>
         get() = _metaNodeAdjacencyList
 
-    private val inverseVertexMap: Map<DifferenceVertex, Vertex> = buildMap {
+    val inverseVertexMap: Map<DifferenceVertex, Vertex> = buildMap {
         vertexMap.forEach { (k, v) -> put(v, k) }
     }
 
@@ -41,6 +42,7 @@ class DifferenceGraph private constructor(
         adjacencyList.forEach { (k, v) ->
             val edgesStatuses = v.map { it.status }.toSet()
             if (edgesStatuses.size > 1) {
+                assert(k !in metaNodes)
                 metaNodes[k] = MetaNode(k.status, listOf(k))
             }
         }
@@ -53,6 +55,7 @@ class DifferenceGraph private constructor(
                 dfs(it, children)
                 val meta = MetaNode(it.status, children)
                 children.forEach {
+                    assert(it !in metaNodes)
                     metaNodes[it] = meta
                 }
             }
@@ -112,13 +115,13 @@ class DifferenceGraph private constructor(
             val differenceVertexes = buildMap {
                 val nodes1Set = nodes1.toSet()
                 val nodes2Set = nodes2.toSet()
-                val allNodes = nodes1 + nodes2
+                val allNodes = (nodes1 + nodes2).toSet()
                 allNodes.forEach {
                     put(it, DifferenceVertex(getStatus(it, nodes1Set, nodes2Set)))
                 }
             }
             val differenceEdges = buildList {
-                val allEdges = edges1 + edges2
+                val allEdges = (edges1 + edges2).toSet().toList()
                 val edges1Set = edges1.toSet()
                 val edges2Set = edges2.toSet()
                 allEdges.forEach {

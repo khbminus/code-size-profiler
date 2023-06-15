@@ -116,4 +116,16 @@ class CompressionTests {
             compressionGraph.metaNodeAdjacencyList[hijMetaNode]!!.toList()
         )
     }
+    @Test
+    fun `same nodes different values`() {
+        val node1 = Node("A", 1)
+        val node2 = Node("A", 2)
+        val node3 = Node("B", 1)
+        val graph = DifferenceGraph.buildCompressionGraph(listOf(node1 to node3), listOf(node1, node3), emptyList(), listOf(node2))
+        graph.build()
+        val metaNodes = graph.metaNodeAdjacencyList.keys
+        assertExactly(listOf(graph.getDifferenceVertex(node1)), metaNodes.find { graph.getDifferenceVertex(node1) in it.children }!!.children)
+        assertExactly(listOf(graph.getDifferenceVertex(node3)), metaNodes.find { graph.getDifferenceVertex(node3) in it.children }!!.children)
+
+    }
 }

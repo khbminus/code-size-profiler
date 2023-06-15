@@ -5,6 +5,7 @@ import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.types.file
 import com.github.ajalt.clikt.parameters.types.path
 import difference.DifferenceGraph
+import difference.DifferenceStatus
 import dominator.DominatorTree
 import graph.DirectedGraphWithFakeSource
 import graph.Edge
@@ -27,7 +28,20 @@ private data class EdgeEntry(
 @Serializable
 private data class NodeEntry(val size: Int, val type: String)
 
-data class IrNode(val name: String, override val value: Int) : Vertex(value)
+data class IrNode(val name: String, override val value: Int) : Vertex(value) {
+    override fun toString(): String {
+        return name
+    }
+
+    override fun equals(other: Any?): Boolean {
+        if (other !is IrNode) return false
+        return name == other.name
+    }
+
+    override fun hashCode(): Int {
+        return name.hashCode()
+    }
+}
 
 
 private val json = Json { prettyPrint = true }
@@ -201,23 +215,43 @@ class StructuredDiff : CliktCommand(help = "get difference in graph structure") 
         canBeDir = false
     )
 
-    private val outputFile by option("-o", "--output", help = "Output file to store graph").path()
-
-    private val graphLeft = GraphData(sizeFileLeft, graphDataLeft)
-    private val graphRight = GraphData(sizeFileRight, graphDataRight)
+    private val edgeOutputFile by option("-e", "--edges", help = "Output file to store graph").path()
+    private val nodesOutputFile by option("-n", "--nodes", help = "Output file to store nodes").path()
 
     override fun run() {
+        val graphLeft = GraphData(sizeFileLeft, graphDataLeft)
+        val graphRight = GraphData(sizeFileRight, graphDataRight)
+
         val compressionGraph = DifferenceGraph.buildCompressionGraph(
             graphLeft.edges, graphLeft.nodes.values.toList(),
             graphRight.edges, graphRight.nodes.values.toList()
         )
         compressionGraph.build()
-        val edges = compressionGraph.metaNodeAdjacencyList.flatMap {(k, v) ->
+        val edges = compressionGraph.metaNodeAdjacencyList.flatMap { (k, v) ->
             v.map {
-                MetaNodeEdge(k.children.toString(), it.children.toString())
+                MetaNodeEdge(
+                    k.children.map { compressionGraph.inverseVertexMap[it]!! }.sortedBy { it.toString() }.toString(),
+                    it.children.map { compressionGraph.inverseVertexMap[it]!! }.sortedBy { it.toString() }.toString(),
+                    false,
+                    ""
+                )
             }
         }
-        outputFile?.writeText(json.encodeToString(edges)) ?: println(json.encodeToString(edges))
+        val nodes = buildMap {
+            compressionGraph.metaNodeAdjacencyList.keys.forEach {
+                val children = it.children.map { compressionGraph.inverseVertexMap[it]!! }
+                val name = children.sortedBy { it.toString() }.toString()
+                val size = children.sumOf { it.value }
+                val type = when (it.status) {
+                    DifferenceStatus.Both -> "both"
+                    DifferenceStatus.FromRight -> "right"
+                    DifferenceStatus.FromLeft -> "left"
+                }
+                put(name, NodeEntry(size, type))
+            }
+        }
+        edgeOutputFile?.writeText(json.encodeToString(edges)) ?: println(json.encodeToString(edges))
+        nodesOutputFile?.writeText(json.encodeToString(nodes)) ?: println(json.encodeToString(nodes))
     }
 
     private class GraphData(sizePath: Path, graphPath: Path) {
@@ -233,12 +267,13 @@ class StructuredDiff : CliktCommand(help = "get difference in graph structure") 
                 Edge(source, target)
             }
     }
+
     @Serializable
     private data class MetaNodeEdge(
-        val from: String,
         val source: String,
-        val isTargetContagious: Boolean = false,
-        val description: String = ""
+        val target: String,
+        val isTargetContagious: Boolean,
+        val description: String
     )
 }
 
