@@ -8,20 +8,6 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 
 class DominatorTreeTests {
-
-    infix fun Vertex.to(rhs: Vertex) = Edge(this, rhs)
-    class Node(private val name: String, value: Int) : Vertex(value) {
-
-        override fun toString(): String {
-            return "Node($name)"
-        }
-    }
-
-    private fun <T> assertExactly(expected: List<T>, actual: List<T>) {
-        assertEquals(expected.size, actual.size)
-        expected.forEach { assertContains(actual, it, "couldn't find $it inside $actual") }
-    }
-
     @Test
     fun `test from eclipse documentation`() {
         val a = Node("A", 1)

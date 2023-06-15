@@ -3,6 +3,8 @@ import com.github.ajalt.clikt.core.subcommands
 import com.github.ajalt.clikt.parameters.arguments.argument
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.types.file
+import com.github.ajalt.clikt.parameters.types.path
+import difference.DifferenceGraph
 import dominator.DominatorTree
 import graph.DirectedGraphWithFakeSource
 import graph.Edge
@@ -10,6 +12,9 @@ import graph.Vertex
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import java.nio.file.Path
+import kotlin.io.path.readText
+import kotlin.io.path.writeText
 
 @Serializable
 private data class EdgeEntry(
@@ -174,7 +179,70 @@ class Diff : CliktCommand(help = "get difference between to size files") {
         .replace("'", "&#039;")
 }
 
+class StructuredDiff : CliktCommand(help = "get difference in graph structure") {
+    private val sizeFileLeft by argument("<left irNodes file>").path(
+        mustBeReadable = true,
+        mustExist = true,
+        canBeDir = false
+    )
+    private val graphDataLeft by argument("<left graph data>").path(
+        mustExist = true,
+        mustBeReadable = true,
+        canBeDir = false
+    )
+    private val sizeFileRight by argument("<right irNodes file>").path(
+        mustBeReadable = true,
+        mustExist = true,
+        canBeDir = false
+    )
+    private val graphDataRight by argument("<right graph data>").path(
+        mustExist = true,
+        mustBeReadable = true,
+        canBeDir = false
+    )
+
+    private val outputFile by option("-o", "--output", help = "Output file to store graph").path()
+
+    private val graphLeft = GraphData(sizeFileLeft, graphDataLeft)
+    private val graphRight = GraphData(sizeFileRight, graphDataRight)
+
+    override fun run() {
+        val compressionGraph = DifferenceGraph.buildCompressionGraph(
+            graphLeft.edges, graphLeft.nodes.values.toList(),
+            graphRight.edges, graphRight.nodes.values.toList()
+        )
+        compressionGraph.build()
+        val edges = compressionGraph.metaNodeAdjacencyList.flatMap {(k, v) ->
+            v.map {
+                MetaNodeEdge(k.children.toString(), it.children.toString())
+            }
+        }
+        outputFile?.writeText(json.encodeToString(edges)) ?: println(json.encodeToString(edges))
+    }
+
+    private class GraphData(sizePath: Path, graphPath: Path) {
+        private val _nodes = Json
+            .decodeFromString<Map<String, NodeEntry>>(sizePath.readText())
+            .mapValues { (k, v) -> IrNode(k, v.size) }.toMutableMap()
+        val nodes: Map<String, IrNode>
+            get() = _nodes
+        val edges =
+            Json.decodeFromString<List<EdgeEntry>>(graphPath.readText()).filter { it.source != it.target }.map {
+                val source = _nodes.getOrPut(it.source) { IrNode("${it.source} <EXT>", 0) }
+                val target = _nodes.getOrPut(it.target) { IrNode("${it.target} <EXT>", 0) }
+                Edge(source, target)
+            }
+    }
+    @Serializable
+    private data class MetaNodeEdge(
+        val from: String,
+        val source: String,
+        val isTargetContagious: Boolean = false,
+        val description: String = ""
+    )
+}
+
 
 fun main(args: Array<String>) = Profiler()
-    .subcommands(Dominators(), Diff())
+    .subcommands(Dominators(), Diff(), StructuredDiff())
     .main(args)
