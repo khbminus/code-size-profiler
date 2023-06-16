@@ -16,6 +16,7 @@ import kotlinx.serialization.json.Json
 import java.nio.file.Path
 import kotlin.io.path.readText
 import kotlin.io.path.writeText
+import kotlin.math.absoluteValue
 
 @Serializable
 private data class EdgeEntry(
@@ -241,7 +242,10 @@ class StructuredDiff : CliktCommand(help = "get difference in graph structure") 
             compressionGraph.metaNodeAdjacencyList.keys.forEach {
                 val children = it.children.map { compressionGraph.inverseVertexMap[it]!! }
                 val name = children.sortedBy { it.toString() }.toString()
-                val size = children.sumOf { it.value }
+                val size = children.sumOf {
+                    val name = it.toString()
+                    ((graphRight.nodes[name]?.value ?: 0) - (graphLeft.nodes[name]?.value ?: 0)).absoluteValue
+                }
                 val type = when (it.status) {
                     DifferenceStatus.Both -> "both"
                     DifferenceStatus.FromRight -> "right"
