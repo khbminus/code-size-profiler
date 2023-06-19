@@ -1,6 +1,7 @@
 import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.core.subcommands
 import com.github.ajalt.clikt.parameters.arguments.argument
+import com.github.ajalt.clikt.parameters.options.flag
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.types.file
 import com.github.ajalt.clikt.parameters.types.path
@@ -15,8 +16,7 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.nio.file.Path
 import kotlin.io.path.readText
-import kotlin.io.path.writeText
-import kotlin.math.absoluteValue
+import kotlin.system.measureTimeMillis
 
 @Serializable
 private data class EdgeEntry(
@@ -29,7 +29,7 @@ private data class EdgeEntry(
 @Serializable
 private data class NodeEntry(val size: Int, val type: String)
 
-data class IrNode(val name: String, override val value: Int) : Vertex(value) {
+data class IrNode(val name: String, override val value: Int, val type: String) : Vertex(value) {
     override fun toString(): String {
         return name
     }
@@ -70,12 +70,12 @@ class Dominators : CliktCommand(help = "Build dominator tree and get retained si
 
     override fun run() {
         val edgeEntries = Json.decodeFromString<List<EdgeEntry>>(graphDataFile.readText())
-        val sizes = Json.decodeFromString<Map<String, NodeEntry>>(irSizeFile.readText()).mapValues { (_, v) -> v.size }
+        val sizes = Json.decodeFromString<Map<String, NodeEntry>>(irSizeFile.readText())
 
-        val nodes = sizes.mapValues { (name, size) -> IrNode(name, size) }.toMutableMap()
+        val nodes = sizes.mapValues { (name, data) -> IrNode(name, data.size, data.type) }.toMutableMap()
         val edges = edgeEntries.filter { it.source != it.target }.map {
-            val source = nodes.getOrPut(it.source) { IrNode("${it.source} <EXT>", 0) }
-            val target = nodes.getOrPut(it.target) { IrNode("${it.target} <EXT>", 0) }
+            val source = nodes.getOrPut(it.source) { IrNode("${it.source} <EXT>", 0, "unknown") }
+            val target = nodes.getOrPut(it.target) { IrNode("${it.target} <EXT>", 0, "unknown") }
             Edge(source, target)
         }
         val dominatorTree = DominatorTree.build(DirectedGraphWithFakeSource(edges))
@@ -216,8 +216,9 @@ class StructuredDiff : CliktCommand(help = "get difference in graph structure") 
         canBeDir = false
     )
 
-    private val edgeOutputFile by option("-e", "--edges", help = "Output file to store graph").path()
-    private val nodesOutputFile by option("-n", "--nodes", help = "Output file to store nodes").path()
+    private val outputDirectory by option("-o", "--output", help = "Path to output directory").path()
+    private val jsOutput by option("--js", help = "Output as JS files")
+        .flag("--no-js", default = false, defaultForHelp = "not enabled")
 
     override fun run() {
         val graphLeft = GraphData(sizeFileLeft, graphDataLeft)
@@ -227,24 +228,46 @@ class StructuredDiff : CliktCommand(help = "get difference in graph structure") 
             graphLeft.edges, graphLeft.nodes.values.toList(),
             graphRight.edges, graphRight.nodes.values.toList()
         )
-        compressionGraph.build()
-        val edges = compressionGraph.metaNodeAdjacencyList.flatMap { (k, v) ->
-            v.map {
-                MetaNodeEdge(
-                    k.children.map { compressionGraph.inverseVertexMap[it]!! }.sortedBy { it.toString() }.toString(),
-                    it.children.map { compressionGraph.inverseVertexMap[it]!! }.sortedBy { it.toString() }.toString(),
-                    false,
-                    ""
-                )
+        val time = measureTimeMillis {
+            compressionGraph.build()
+        }
+        println("Building compression graph finished in $time ms")
+        outputGraph(compressionGraph, graphLeft, graphRight)
+    }
+
+    private fun outputGraph(graph: DifferenceGraph, graphLeft: GraphData, graphRight: GraphData) {
+        val dir = outputDirectory?.toFile() ?: return
+        if (dir.exists() && dir.isFile) {
+            error("output directory is a file")
+        }
+        dir.mkdirs()
+        val extension = if (jsOutput) "js" else "json"
+        val metaNodesPrefix = if (jsOutput) "export diffMetaNodesInfo = " else ""
+        val metaNodeFile = dir.resolve("metanodes.${extension}")
+        val metaNodes = graph.getMetaNodes()
+        val metaNodesNames = buildMap {
+            var counter = 1
+            metaNodes.values.toSet().forEach {
+                put(it, "MetaNode${counter++}")
             }
         }
+        metaNodeFile.writeText(metaNodesPrefix +
+            json.encodeToString(
+                MetaNodeDataEntry(
+                    graph.metaNodeAdjacencyList.keys.map { metaNodesNames[it]!! },
+                    metaNodes.mapKeys { (k, _) -> k.toString() }.mapValues { (_, v) -> metaNodesNames[v]!! }
+                )
+            )
+        )
+        val nodesPrefix = if (jsOutput) "export diffDeclarationsSizes = " else ""
+        val nodesFile = dir.resolve("ir-sizes.$extension")
         val nodes = buildMap {
-            compressionGraph.metaNodeAdjacencyList.keys.forEach {
-                val children = it.children.map { compressionGraph.inverseVertexMap[it]!! }
-                val name = children.sortedBy { it.toString() }.toString()
+            graph.metaNodeAdjacencyList.keys.forEach {
+                val children = it.children.map { graph.inverseVertexMap[it]!! }
+                val name = metaNodesNames[it]!!
                 val size = children.sumOf {
                     val name = it.toString()
-                    ((graphRight.nodes[name]?.value ?: 0) - (graphLeft.nodes[name]?.value ?: 0)).absoluteValue
+                    (graphRight.nodes[name]?.value ?: 0) - (graphLeft.nodes[name]?.value ?: 0)
                 }
                 val type = when (it.status) {
                     DifferenceStatus.Both -> "both"
@@ -253,31 +276,53 @@ class StructuredDiff : CliktCommand(help = "get difference in graph structure") 
                 }
                 put(name, NodeEntry(size, type))
             }
+            graph.inverseVertexMap.values.forEach { v ->
+                graphLeft.nodes[v.toString()]?.let { put(v.toString(), NodeEntry(it.value, it.type)) }
+                    ?: graphRight.nodes[v.toString()]?.let { put(v.toString(), NodeEntry(it.value, it.type)) }
+            }
         }
-        edgeOutputFile?.writeText(json.encodeToString(edges)) ?: println(json.encodeToString(edges))
-        nodesOutputFile?.writeText(json.encodeToString(nodes)) ?: println(json.encodeToString(nodes))
+        nodesFile.writeText(nodesPrefix + json.encodeToString(nodes))
+
+        val edgesPrefix = if (jsOutput) "export diffReachibilityInfo =" else ""
+        val edgesFile = dir.resolve("dce-graph.$extension")
+        val edges = graph.metaNodeAdjacencyList.flatMap { (k, v) ->
+            v.map {
+                EdgeEntry(
+                    metaNodesNames[k]!!,
+                    metaNodesNames[k]!!,
+                    "",
+                    false
+                )
+            }
+        } + graphLeft
+            .edges
+            .filter { it.source.toString() in nodes && it.target.toString() in nodes }
+            .map { EdgeEntry(it.source.toString(), it.target.toString(), "", false) } +
+                graphRight
+                    .edges
+                    .filter { it.source.toString() in nodes && it.target.toString() in nodes }
+                    .map { EdgeEntry(it.source.toString(), it.target.toString(), "", false) }
+        edgesFile.writeText(edgesPrefix + json.encodeToString(edges.toSet().toList()))
     }
 
     private class GraphData(sizePath: Path, graphPath: Path) {
         private val _nodes = Json
             .decodeFromString<Map<String, NodeEntry>>(sizePath.readText())
-            .mapValues { (k, v) -> IrNode(k, v.size) }.toMutableMap()
+            .mapValues { (k, v) -> IrNode(k, v.size, v.type) }.toMutableMap()
         val nodes: Map<String, IrNode>
             get() = _nodes
         val edges =
             Json.decodeFromString<List<EdgeEntry>>(graphPath.readText()).filter { it.source != it.target }.map {
-                val source = _nodes.getOrPut(it.source) { IrNode("${it.source} <EXT>", 0) }
-                val target = _nodes.getOrPut(it.target) { IrNode("${it.target} <EXT>", 0) }
+                val source = _nodes.getOrPut(it.source) { IrNode("${it.source} <EXT>", 0, "unknown") }
+                val target = _nodes.getOrPut(it.target) { IrNode("${it.target} <EXT>", 0, "unknown") }
                 Edge(source, target)
             }
     }
 
     @Serializable
-    private data class MetaNodeEdge(
-        val source: String,
-        val target: String,
-        val isTargetContagious: Boolean,
-        val description: String
+    private data class MetaNodeDataEntry(
+        val metaNodesList: List<String>,
+        val parent: Map<String, String>
     )
 }
 

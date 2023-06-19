@@ -37,6 +37,9 @@ class DifferenceGraph private constructor(
     }
 
     private val metaNodes: MutableMap<DifferenceVertex, MetaNode> = mutableMapOf()
+    fun getMetaNodes(): Map<Vertex, MetaNode>  = metaNodes
+            .filterKeys(inverseVertexMap::containsKey)
+            .mapKeys { (k, _) -> inverseVertexMap[k]!! }
 
     private fun edgeDecomposition() {
         adjacencyList.forEach { (k, v) ->

@@ -24,7 +24,7 @@ class DominatorTree private constructor(private val dominators: Map<Vertex, Vert
      * Get a retained size of the vertex. Retained size is the size of a vertex is
      * sum of the shallow size of all vertexes that are dominated by vertex. Works in O(1)
      */
-    fun getRetainedSize(vertex: Vertex) = retainedSizes[vertex] ?: error("Couldn't find vertex $vertex")
+    fun getRetainedSize(vertex: Vertex) = retainedSizes[vertex] ?: vertex.value
 
     companion object {
         fun build(graph: DirectGraphWithSingleSource) = DominatorTreeBuilder(graph).build()
