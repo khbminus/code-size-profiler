@@ -14,6 +14,7 @@ import graph.Vertex
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import java.io.File
 import java.nio.file.Path
 import kotlin.io.path.readText
 import kotlin.system.measureTimeMillis
@@ -53,19 +54,20 @@ class Profiler : CliktCommand() {
 }
 
 class Dominators : CliktCommand(help = "Build dominator tree and get retained size") {
-    private val graphDataFile by argument("<path-to/dce-graph.json>").file(
-        mustExist = true,
-        mustBeReadable = true,
-        canBeDir = false
-    )
-
     private val irSizeFile by argument("<path-to/ir-sizes.json>").file(
         mustExist = true,
         mustBeReadable = true,
         canBeDir = false
     )
 
+    private val graphDataFile by argument("<path-to/dce-graph.json>").file(
+        mustExist = true,
+        mustBeReadable = true,
+        canBeDir = false
+    )
+
     private val outputFile by option("-o", "--output", help = "path to output file").file()
+    private val edgesFile by option("-e", "--edges", help = "path to output file for edges").file()
 
 
     override fun run() {
@@ -79,8 +81,8 @@ class Dominators : CliktCommand(help = "Build dominator tree and get retained si
             Edge(source, target)
         }
         val dominatorTree = DominatorTree.build(DirectedGraphWithFakeSource(edges))
-        val retainedSizes = nodes.mapValues { (_, node) -> dominatorTree.getRetainedSize(node) }
-        when (determineExtension()) {
+        val retainedSizes = nodes.mapValues { (_, node) -> NodeEntry(dominatorTree.getRetainedSize(node), node.type) }
+        when (outputFile.determineExtension()) {
             EXT.DISPLAY -> println(json.encodeToString(retainedSizes))
             EXT.JSON -> outputFile?.writeText(Json.encodeToString(retainedSizes))
             EXT.JS -> outputFile?.writeText(
@@ -89,10 +91,31 @@ class Dominators : CliktCommand(help = "Build dominator tree and get retained si
                 """.trimMargin().trim()
             )
         }
+        dominatorTree.printEdges(edgesFile)
+
     }
 
-    private fun determineExtension(): EXT {
-        val file = outputFile ?: return EXT.DISPLAY
+    private fun DominatorTree.printEdges(file: File?) {
+        val edges = adjacencyList
+            .asSequence()
+            .flatMap { (_, v) -> v  }
+            .constrainOnce()
+            .filter { it.source != sourceVertex && it.target != sourceVertex }
+            .map { EdgeEntry(it.source.toString(), it.target.toString(), "", false) }
+            .toList()
+        when (file.determineExtension()) {
+            EXT.DISPLAY -> println(json.encodeToString(edges))
+            EXT.JSON -> edgesFile?.writeText(Json.encodeToString(edges))
+            EXT.JS -> edgesFile?.writeText(
+                """
+                | export const retainedReachibilityInfo = ${Json.encodeToString(edges)}
+                """.trimMargin().trim()
+            )
+        }
+    }
+
+    private fun File?.determineExtension(): EXT {
+        val file = this ?: return EXT.DISPLAY
         return when (file.extension) {
             "js" -> EXT.JS
             "json" -> EXT.JSON
@@ -242,7 +265,7 @@ class StructuredDiff : CliktCommand(help = "get difference in graph structure") 
         }
         dir.mkdirs()
         val extension = if (jsOutput) "js" else "json"
-        val metaNodesPrefix = if (jsOutput) "export diffMetaNodesInfo = " else ""
+        val metaNodesPrefix = if (jsOutput) "export const diffMetaNodesInfo = " else ""
         val metaNodeFile = dir.resolve("metanodes.${extension}")
         val metaNodes = graph.getMetaNodes()
         val metaNodesNames = buildMap {
@@ -252,14 +275,14 @@ class StructuredDiff : CliktCommand(help = "get difference in graph structure") 
             }
         }
         metaNodeFile.writeText(metaNodesPrefix +
-            json.encodeToString(
+            Json.encodeToString(
                 MetaNodeDataEntry(
                     graph.metaNodeAdjacencyList.keys.map { metaNodesNames[it]!! },
                     metaNodes.mapKeys { (k, _) -> k.toString() }.mapValues { (_, v) -> metaNodesNames[v]!! }
                 )
             )
         )
-        val nodesPrefix = if (jsOutput) "export diffDeclarationsSizes = " else ""
+        val nodesPrefix = if (jsOutput) "export const diffDeclarationsSizes = " else ""
         val nodesFile = dir.resolve("ir-sizes.$extension")
         val nodes = buildMap {
             graph.metaNodeAdjacencyList.keys.forEach {
@@ -281,15 +304,15 @@ class StructuredDiff : CliktCommand(help = "get difference in graph structure") 
                     ?: graphRight.nodes[v.toString()]?.let { put(v.toString(), NodeEntry(it.value, it.type)) }
             }
         }
-        nodesFile.writeText(nodesPrefix + json.encodeToString(nodes))
+        nodesFile.writeText(nodesPrefix + Json.encodeToString(nodes))
 
-        val edgesPrefix = if (jsOutput) "export diffReachibilityInfo =" else ""
+        val edgesPrefix = if (jsOutput) "export const diffReachibilityInfos =" else ""
         val edgesFile = dir.resolve("dce-graph.$extension")
         val edges = graph.metaNodeAdjacencyList.flatMap { (k, v) ->
             v.map {
                 EdgeEntry(
                     metaNodesNames[k]!!,
-                    metaNodesNames[k]!!,
+                    metaNodesNames[it]!!,
                     "",
                     false
                 )
@@ -302,7 +325,31 @@ class StructuredDiff : CliktCommand(help = "get difference in graph structure") 
                     .edges
                     .filter { it.source.toString() in nodes && it.target.toString() in nodes }
                     .map { EdgeEntry(it.source.toString(), it.target.toString(), "", false) }
-        edgesFile.writeText(edgesPrefix + json.encodeToString(edges.toSet().toList()))
+        edgesFile.writeText(edgesPrefix + Json.encodeToString(edges.toSet().toList()))
+
+        val nodeDiffPrefix = if (jsOutput) "export const diffDeclarationsDifference = " else ""
+        val nodeDiffFile = dir.resolve("node-diff.$extension")
+        val difference = buildMap {
+            graph.inverseVertexMap.forEach { (differenceVertex, vertex) ->
+                val name = vertex.toString()
+                when (differenceVertex.status) {
+                    DifferenceStatus.FromLeft -> {
+                        val node = graphLeft.nodes[name]!!
+                        put(name, NodeEntry(node.value, node.type))
+                    }
+                    DifferenceStatus.FromRight -> {
+                        val node = graphRight.nodes[name]!!
+                        put(name, NodeEntry(node.value, node.type))
+                    }
+                    DifferenceStatus.Both -> {
+                        val value = graphRight.nodes[name]!!.value - graphLeft.nodes[name]!!.value
+                        put(name, NodeEntry(value, graphRight.nodes[name]!!.type))
+                    }
+                }
+                Unit
+            }
+        }
+        nodeDiffFile.writeText(nodeDiffPrefix + Json.encodeToString(difference))
     }
 
     private class GraphData(sizePath: Path, graphPath: Path) {
@@ -313,8 +360,8 @@ class StructuredDiff : CliktCommand(help = "get difference in graph structure") 
             get() = _nodes
         val edges =
             Json.decodeFromString<List<EdgeEntry>>(graphPath.readText()).filter { it.source != it.target }.map {
-                val source = _nodes.getOrPut(it.source) { IrNode("${it.source} <EXT>", 0, "unknown") }
-                val target = _nodes.getOrPut(it.target) { IrNode("${it.target} <EXT>", 0, "unknown") }
+                val source = _nodes.getOrPut(it.source) { IrNode(it.source, 0, "unknown") }
+                val target = _nodes.getOrPut(it.target) { IrNode(it.target, 0, "unknown") }
                 Edge(source, target)
             }
     }

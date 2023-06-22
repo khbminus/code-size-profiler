@@ -4,7 +4,11 @@ class DirectedGraphWithFakeSource(edges: List<Edge>) :
     DirectGraphWithSingleSource(listOf()) {
     override val adjacencyList: Map<Vertex, List<Edge>>
     override val incomingEdges: Map<Vertex, List<Edge>>
-    override val sourceVertex: Vertex = Vertex(0)
+    override val sourceVertex: Vertex = object : Vertex(0) {
+        override fun toString(): String {
+            return "Fake source"
+        }
+    }
     init {
         val allNodes = edges.flatMap { listOf(it.source, it.target) }.toSet()
         val inDegrees = edges.groupBy { it.target }.mapValues { (_, v) -> v.size }
