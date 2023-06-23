@@ -71,7 +71,7 @@ class DifferenceTree private constructor(val parents: Map<String, String>, val n
                             put(
                                 name, DifferenceTreeVertex(
                                     DifferenceStatus.FromRight,
-                                    vertex.value
+                                    vertex.size
                                 )
                             )
                             newParents[name] = treeRight.parents[name]!!
@@ -81,7 +81,7 @@ class DifferenceTree private constructor(val parents: Map<String, String>, val n
                             put(
                                 name, DifferenceTreeVertex(
                                     DifferenceStatus.FromLeft,
-                                    -vertex.value
+                                    -vertex.size
                                 )
                             )
                             newParents[name] = treeLeft.parents[name]!!
@@ -94,7 +94,7 @@ class DifferenceTree private constructor(val parents: Map<String, String>, val n
                                 name,
                                 DifferenceTreeVertex(
                                     DifferenceStatus.Both,
-                                    fromRight.value - fromLeft.value
+                                    fromRight.size - fromLeft.size
                                 )
                             )
                             newParents[name] = parentLeft!!
@@ -104,17 +104,17 @@ class DifferenceTree private constructor(val parents: Map<String, String>, val n
                             val fromLeft = treeLeft.nodes[name] ?: error("Couldn't look up in left node $name")
                             val fromRight = treeRight.nodes[name] ?: error("Couldn't look up in right node $name")
                             val nameRemoved = "$name (removed)"
-                            val nameAdded = "$name (added)"
+                            val nameAdded = name
                             put(
                                 nameRemoved, DifferenceTreeVertex(
                                     DifferenceStatus.FromLeft,
-                                    -fromLeft.value
+                                    -fromLeft.size
                                 )
                             )
                             put(
                                 nameAdded, DifferenceTreeVertex(
                                     DifferenceStatus.FromRight,
-                                    fromRight.value
+                                    fromRight.size
                                 )
                             )
                             newParents[nameAdded] = parentRight!!

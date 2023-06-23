@@ -71,11 +71,16 @@ class Dominators : CliktCommand(help = "Build dominator tree and get retained si
 
     private val outputFile by option("-o", "--output", help = "path to output file").file()
     private val edgesFile by option("-e", "--edges", help = "path to output file for edges").file()
-    private val isParentEdgeFormat by option("--parent", help = "format of edge file").flag(
+    private val isParentEdgeFormat by option("--tree", help = "format of edge file").flag(
         "--graph",
         default = false,
         defaultForHelp = "use graph format"
     )
+    private val removeUnknown by option(
+        "--remove-unknown",
+        "-r",
+        help = "remove nodes, that are not stated in IR sizes"
+    ).flag("--leave-unknown", default = false, defaultForHelp = "leave unknown and add it to result")
 
 
     override fun run() {
@@ -83,11 +88,13 @@ class Dominators : CliktCommand(help = "Build dominator tree and get retained si
         val sizes = Json.decodeFromString<Map<String, NodeEntry>>(irSizeFile.readText())
 
         val nodes = sizes.mapValues { (name, data) -> IrNode(name, data.size, data.type) }.toMutableMap()
-        val edges = edgeEntries.filter { it.source != it.target }.map {
-            val source = nodes.getOrPut(it.source) { IrNode("${it.source} <EXT>", 0, "unknown") }
-            val target = nodes.getOrPut(it.target) { IrNode("${it.target} <EXT>", 0, "unknown") }
-            Edge(source, target)
-        }
+        val edges = edgeEntries.filter { it.source != it.target }
+            .filter { !removeUnknown || (it.source in nodes && it.target in nodes) }
+            .map {
+                val source = nodes.getOrPut(it.source) { IrNode(it.source, 0, "unknown") }
+                val target = nodes.getOrPut(it.target) { IrNode(it.target, 0, "unknown") }
+                Edge(source, target)
+            }
         val dominatorTree = DominatorTree.build(DirectedGraphWithFakeSource(edges))
         val retainedSizes = nodes.mapValues { (_, node) -> NodeEntry(dominatorTree.getRetainedSize(node), node.type) }
         when (outputFile.determineExtension()) {
@@ -100,7 +107,10 @@ class Dominators : CliktCommand(help = "Build dominator tree and get retained si
             )
         }
         if (isParentEdgeFormat) {
-            val parents = dominatorTree.dominators.mapKeys { it.toString() }.mapValues { it.toString() }
+            val parents = dominatorTree
+                .dominators
+                .mapKeys { (it, _) -> it.toString() }
+                .mapValues { (_, it) -> it.toString() }
             when (edgesFile.determineExtension()) {
                 EXT.DISPLAY -> println(json.encodeToString(parents))
                 EXT.JSON -> edgesFile?.writeText(Json.encodeToString(parents))
@@ -277,12 +287,13 @@ class StructuredDiff : CliktCommand(help = "get difference in graph structure") 
     }
 
     private fun compareTree() {
+        val fakeSource = mapOf("Fake source" to VertexWithType(0, "fake source"))
         val treeLeft = DifferenceTree.RetainedTree(
-            Json.decodeFromString<Map<String, VertexWithType>>(sizeFileLeft.readText()),
+            Json.decodeFromString<Map<String, VertexWithType>>(sizeFileLeft.readText()) + fakeSource,
             Json.decodeFromString<Map<String, String>>(graphDataLeft.readText())
         )
         val treeRight = DifferenceTree.RetainedTree(
-            Json.decodeFromString<Map<String, VertexWithType>>(sizeFileRight.readText()),
+            Json.decodeFromString<Map<String, VertexWithType>>(sizeFileRight.readText()) + fakeSource,
             Json.decodeFromString<Map<String, String>>(graphDataRight.readText())
         )
         lateinit var tree: DifferenceTree
