@@ -10,7 +10,7 @@ import graph.Vertex
  *
  * Construction of the tree works in O(|V|^2), but practically faster than Lengauer-Tarjan algorithm
  */
-class DominatorTree private constructor(private val dominators: Map<Vertex, Vertex>, override val sourceVertex: Vertex) :
+class DominatorTree private constructor(val dominators: Map<Vertex, Vertex>, override val sourceVertex: Vertex) :
     DirectGraphWithSingleSource(dominators.filter { (k, v) -> k != v }.map { (k, v) -> Edge(v, k) }) {
     private val retainedSizes: Map<Vertex, Int> = buildMap {
         runDfs(

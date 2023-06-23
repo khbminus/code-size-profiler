@@ -7,16 +7,19 @@ import com.github.ajalt.clikt.parameters.types.file
 import com.github.ajalt.clikt.parameters.types.path
 import difference.DifferenceGraph
 import difference.DifferenceStatus
+import difference.DifferenceTree
 import dominator.DominatorTree
 import graph.DirectedGraphWithFakeSource
 import graph.Edge
 import graph.Vertex
+import graph.VertexWithType
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.io.File
 import java.nio.file.Path
 import kotlin.io.path.readText
+import kotlin.io.path.writeText
 import kotlin.system.measureTimeMillis
 
 @Serializable
@@ -68,6 +71,11 @@ class Dominators : CliktCommand(help = "Build dominator tree and get retained si
 
     private val outputFile by option("-o", "--output", help = "path to output file").file()
     private val edgesFile by option("-e", "--edges", help = "path to output file for edges").file()
+    private val isParentEdgeFormat by option("--parent", help = "format of edge file").flag(
+        "--graph",
+        default = false,
+        defaultForHelp = "use graph format"
+    )
 
 
     override fun run() {
@@ -91,14 +99,26 @@ class Dominators : CliktCommand(help = "Build dominator tree and get retained si
                 """.trimMargin().trim()
             )
         }
-        dominatorTree.printEdges(edgesFile)
-
+        if (isParentEdgeFormat) {
+            val parents = dominatorTree.dominators.mapKeys { it.toString() }.mapValues { it.toString() }
+            when (edgesFile.determineExtension()) {
+                EXT.DISPLAY -> println(json.encodeToString(parents))
+                EXT.JSON -> edgesFile?.writeText(Json.encodeToString(parents))
+                EXT.JS -> edgesFile?.writeText(
+                    """
+                | export const retainedTreeInfo = ${Json.encodeToString(parents)}
+                """.trimMargin().trim()
+                )
+            }
+        } else {
+            dominatorTree.printEdges(edgesFile)
+        }
     }
 
     private fun DominatorTree.printEdges(file: File?) {
         val edges = adjacencyList
             .asSequence()
-            .flatMap { (_, v) -> v  }
+            .flatMap { (_, v) -> v }
             .constrainOnce()
             .filter { it.source != sourceVertex && it.target != sourceVertex }
             .map { EdgeEntry(it.source.toString(), it.target.toString(), "", false) }
@@ -242,8 +262,49 @@ class StructuredDiff : CliktCommand(help = "get difference in graph structure") 
     private val outputDirectory by option("-o", "--output", help = "Path to output directory").path()
     private val jsOutput by option("--js", help = "Output as JS files")
         .flag("--no-js", default = false, defaultForHelp = "not enabled")
+    private val isTree by option("--tree", help = "Compare trees instead of graphs").flag(
+        "--graph",
+        defaultForHelp = "Compare graph",
+        default = false
+    )
 
     override fun run() {
+        if (isTree) {
+            compareTree()
+        } else {
+            compareGraph()
+        }
+    }
+
+    private fun compareTree() {
+        val treeLeft = DifferenceTree.RetainedTree(
+            Json.decodeFromString<Map<String, VertexWithType>>(sizeFileLeft.readText()),
+            Json.decodeFromString<Map<String, String>>(graphDataLeft.readText())
+        )
+        val treeRight = DifferenceTree.RetainedTree(
+            Json.decodeFromString<Map<String, VertexWithType>>(sizeFileRight.readText()),
+            Json.decodeFromString<Map<String, String>>(graphDataRight.readText())
+        )
+        lateinit var tree: DifferenceTree
+        val time = measureTimeMillis {
+            tree = DifferenceTree.build(treeLeft, treeRight)
+        }
+        println("Building compressing tree finished in $time ms")
+        val (extension, parentsPrefix, sizesPrefix) = if (jsOutput) listOf(
+            "js",
+            "export const diffTreeParents = ",
+            "export const diffDeclarationsSizes = "
+        ) else listOf("json", "", "")
+        outputDirectory?.let {
+            val parentsFile = it.resolve("parents.$extension")
+            parentsFile.writeText("$parentsPrefix${Json.encodeToString(tree.parents)}")
+
+            val nodesFile = it.resolve("ir-sizes.$extension")
+            nodesFile.writeText("$sizesPrefix${Json.encodeToString(tree.nodes)}")
+        }
+    }
+
+    private fun compareGraph() {
         val graphLeft = GraphData(sizeFileLeft, graphDataLeft)
         val graphRight = GraphData(sizeFileRight, graphDataRight)
 
@@ -275,12 +336,12 @@ class StructuredDiff : CliktCommand(help = "get difference in graph structure") 
             }
         }
         metaNodeFile.writeText(metaNodesPrefix +
-            Json.encodeToString(
-                MetaNodeDataEntry(
-                    graph.metaNodeAdjacencyList.keys.map { metaNodesNames[it]!! },
-                    metaNodes.mapKeys { (k, _) -> k.toString() }.mapValues { (_, v) -> metaNodesNames[v]!! }
+                Json.encodeToString(
+                    MetaNodeDataEntry(
+                        graph.metaNodeAdjacencyList.keys.map { metaNodesNames[it]!! },
+                        metaNodes.mapKeys { (k, _) -> k.toString() }.mapValues { (_, v) -> metaNodesNames[v]!! }
+                    )
                 )
-            )
         )
         val nodesPrefix = if (jsOutput) "export const diffDeclarationsSizes = " else ""
         val nodesFile = dir.resolve("ir-sizes.$extension")
@@ -337,10 +398,12 @@ class StructuredDiff : CliktCommand(help = "get difference in graph structure") 
                         val node = graphLeft.nodes[name]!!
                         put(name, NodeEntry(node.value, node.type))
                     }
+
                     DifferenceStatus.FromRight -> {
                         val node = graphRight.nodes[name]!!
                         put(name, NodeEntry(node.value, node.type))
                     }
+
                     DifferenceStatus.Both -> {
                         val value = graphRight.nodes[name]!!.value - graphLeft.nodes[name]!!.value
                         put(name, NodeEntry(value, graphRight.nodes[name]!!.type))
