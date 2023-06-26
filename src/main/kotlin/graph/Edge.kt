@@ -1,6 +1,6 @@
 package graph
 
-open class Edge(val source: Vertex, val target: Vertex) {
+open class Edge(val source: VertexWithType, val target: VertexWithType) {
     override fun toString(): String {
         return "graph.Edge($source -> $target)"
     }

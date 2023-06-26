@@ -11,7 +11,6 @@ import difference.DifferenceTree
 import dominator.DominatorTree
 import graph.DirectedGraphWithFakeSource
 import graph.Edge
-import graph.Vertex
 import graph.VertexWithType
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
@@ -29,25 +28,6 @@ private data class EdgeEntry(
     val description: String,
     val isTargetContagious: Boolean
 )
-
-@Serializable
-private data class NodeEntry(val size: Int, val type: String)
-
-data class IrNode(val name: String, override val value: Int, val type: String) : Vertex(value) {
-    override fun toString(): String {
-        return name
-    }
-
-    override fun equals(other: Any?): Boolean {
-        if (other !is IrNode) return false
-        return name == other.name
-    }
-
-    override fun hashCode(): Int {
-        return name.hashCode()
-    }
-}
-
 
 private val json = Json { prettyPrint = true }
 
@@ -85,18 +65,18 @@ class Dominators : CliktCommand(help = "Build dominator tree and get retained si
 
     override fun run() {
         val edgeEntries = Json.decodeFromString<List<EdgeEntry>>(graphDataFile.readText())
-        val sizes = Json.decodeFromString<Map<String, NodeEntry>>(irSizeFile.readText())
+        val sizes = Json.decodeFromString<Map<String, VertexWithType>>(irSizeFile.readText())
 
-        val nodes = sizes.mapValues { (name, data) -> IrNode(name, data.size, data.type) }.toMutableMap()
+        val nodes = sizes.toMutableMap()
         val edges = edgeEntries.filter { it.source != it.target }
             .filter { !removeUnknown || (it.source in nodes && it.target in nodes) }
             .map {
-                val source = nodes.getOrPut(it.source) { IrNode(it.source, 0, "unknown") }
-                val target = nodes.getOrPut(it.target) { IrNode(it.target, 0, "unknown") }
+                val source = nodes.getOrPut(it.source) { VertexWithType( 0, "unknown") }
+                val target = nodes.getOrPut(it.target) { VertexWithType(0, "unknown") }
                 Edge(source, target)
             }
         val dominatorTree = DominatorTree.build(DirectedGraphWithFakeSource(edges))
-        val retainedSizes = nodes.mapValues { (_, node) -> NodeEntry(dominatorTree.getRetainedSize(node), node.type) }
+        val retainedSizes = nodes.mapValues { (_, node) -> VertexWithType(dominatorTree.getRetainedSize(node), node.type) }
         when (outputFile.determineExtension()) {
             EXT.DISPLAY -> println(json.encodeToString(retainedSizes))
             EXT.JSON -> outputFile?.writeText(Json.encodeToString(retainedSizes))
@@ -173,9 +153,9 @@ class Diff : CliktCommand(help = "get difference between to size files") {
     private val outputFile by option("-o", "--output").file()
     override fun run() {
         val contentLeft = // TODO: check node type
-            Json.decodeFromString<Map<String, NodeEntry>>(file1.readText()).mapValues { (_, v) -> v.size }
+            Json.decodeFromString<Map<String, VertexWithType>>(file1.readText()).mapValues { (_, v) -> v.size }
         val contentRight =
-            Json.decodeFromString<Map<String, NodeEntry>>(file2.readText()).mapValues { (_, v) -> v.size }
+            Json.decodeFromString<Map<String, VertexWithType>>(file2.readText()).mapValues { (_, v) -> v.size }
         val deltaContent = buildMap {
             (contentLeft.keys + contentRight.keys).forEach {
                 put(it, contentRight.getOrDefault(it, 0) - contentLeft.getOrDefault(it, 0))
@@ -362,18 +342,18 @@ class StructuredDiff : CliktCommand(help = "get difference in graph structure") 
                 val name = metaNodesNames[it]!!
                 val size = children.sumOf {
                     val name = it.toString()
-                    (graphRight.nodes[name]?.value ?: 0) - (graphLeft.nodes[name]?.value ?: 0)
+                    (graphRight.nodes[name]?.size ?: 0) - (graphLeft.nodes[name]?.size ?: 0)
                 }
                 val type = when (it.status) {
                     DifferenceStatus.Both -> "both"
                     DifferenceStatus.FromRight -> "right"
                     DifferenceStatus.FromLeft -> "left"
                 }
-                put(name, NodeEntry(size, type))
+                put(name, VertexWithType(size, type))
             }
             graph.inverseVertexMap.values.forEach { v ->
-                graphLeft.nodes[v.toString()]?.let { put(v.toString(), NodeEntry(it.value, it.type)) }
-                    ?: graphRight.nodes[v.toString()]?.let { put(v.toString(), NodeEntry(it.value, it.type)) }
+                graphLeft.nodes[v.toString()]?.let { put(v.toString(), it) }
+                    ?: graphRight.nodes[v.toString()]?.let { put(v.toString(), it) }
             }
         }
         nodesFile.writeText(nodesPrefix + Json.encodeToString(nodes))
@@ -407,17 +387,17 @@ class StructuredDiff : CliktCommand(help = "get difference in graph structure") 
                 when (differenceVertex.status) {
                     DifferenceStatus.FromLeft -> {
                         val node = graphLeft.nodes[name]!!
-                        put(name, NodeEntry(node.value, node.type))
+                        put(name, VertexWithType(node.size, node.type))
                     }
 
                     DifferenceStatus.FromRight -> {
                         val node = graphRight.nodes[name]!!
-                        put(name, NodeEntry(node.value, node.type))
+                        put(name, VertexWithType(node.size, node.type))
                     }
 
                     DifferenceStatus.Both -> {
-                        val value = graphRight.nodes[name]!!.value - graphLeft.nodes[name]!!.value
-                        put(name, NodeEntry(value, graphRight.nodes[name]!!.type))
+                        val value = graphRight.nodes[name]!!.size - graphLeft.nodes[name]!!.size
+                        put(name, VertexWithType(value, graphRight.nodes[name]!!.type))
                     }
                 }
                 Unit
@@ -428,14 +408,13 @@ class StructuredDiff : CliktCommand(help = "get difference in graph structure") 
 
     private class GraphData(sizePath: Path, graphPath: Path) {
         private val _nodes = Json
-            .decodeFromString<Map<String, NodeEntry>>(sizePath.readText())
-            .mapValues { (k, v) -> IrNode(k, v.size, v.type) }.toMutableMap()
-        val nodes: Map<String, IrNode>
+            .decodeFromString<Map<String, VertexWithType>>(sizePath.readText()).toMutableMap()
+        val nodes: Map<String, VertexWithType>
             get() = _nodes
         val edges =
             Json.decodeFromString<List<EdgeEntry>>(graphPath.readText()).filter { it.source != it.target }.map {
-                val source = _nodes.getOrPut(it.source) { IrNode(it.source, 0, "unknown") }
-                val target = _nodes.getOrPut(it.target) { IrNode(it.target, 0, "unknown") }
+                val source = _nodes.getOrPut(it.source) { VertexWithType(0, "unknown") }
+                val target = _nodes.getOrPut(it.target) { VertexWithType(0, "unknown") }
                 Edge(source, target)
             }
     }

@@ -2,9 +2,9 @@ package graph
 
 class DirectedGraphWithFakeSource(edges: List<Edge>) :
     DirectGraphWithSingleSource(listOf()) {
-    override val adjacencyList: Map<Vertex, List<Edge>>
-    override val incomingEdges: Map<Vertex, List<Edge>>
-    override val sourceVertex: Vertex = object : Vertex(0) {
+    override val adjacencyList: Map<VertexWithType, List<Edge>>
+    override val incomingEdges: Map<VertexWithType, List<Edge>>
+    override val sourceVertex: VertexWithType = object : VertexWithType(0, "fakeRoot") {
         override fun toString(): String {
             return "Fake source"
         }

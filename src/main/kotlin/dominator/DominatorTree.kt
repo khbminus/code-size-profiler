@@ -2,7 +2,7 @@ package dominator
 
 import graph.DirectGraphWithSingleSource
 import graph.Edge
-import graph.Vertex
+import graph.VertexWithType
 
 /**
  * Computing dominators tree of a graph, using:
@@ -10,11 +10,11 @@ import graph.Vertex
  *
  * Construction of the tree works in O(|V|^2), but practically faster than Lengauer-Tarjan algorithm
  */
-class DominatorTree private constructor(val dominators: Map<Vertex, Vertex>, override val sourceVertex: Vertex) :
+class DominatorTree private constructor(val dominators: Map<VertexWithType, VertexWithType>, override val sourceVertex: VertexWithType) :
     DirectGraphWithSingleSource(dominators.filter { (k, v) -> k != v }.map { (k, v) -> Edge(v, k) }) {
-    private val retainedSizes: Map<Vertex, Int> = buildMap {
+    private val retainedSizes: Map<VertexWithType, Int> = buildMap {
         runDfs(
-            { put(it, it.value) },
+            { put(it, it.size) },
             {},
             { computeIfPresent(it.source) { _, v -> v + getOrDefault(it.target, 0) } }
         )
@@ -24,21 +24,21 @@ class DominatorTree private constructor(val dominators: Map<Vertex, Vertex>, ove
      * Get a retained size of the vertex. Retained size is the size of a vertex is
      * sum of the shallow size of all vertexes that are dominated by vertex. Works in O(1)
      */
-    fun getRetainedSize(vertex: Vertex) = retainedSizes[vertex] ?: vertex.value
+    fun getRetainedSize(vertex: VertexWithType) = retainedSizes[vertex] ?: vertex.size
 
     companion object {
         fun build(graph: DirectGraphWithSingleSource) = DominatorTreeBuilder(graph).build()
     }
 
     private class DominatorTreeBuilder(private val graph: DirectGraphWithSingleSource) {
-        private val vertexPostOrder: List<Vertex> = graph.getPostOrder()
-        private val vertexOrder: Map<Vertex, Int> = buildMap {
+        private val vertexPostOrder: List<VertexWithType> = graph.getPostOrder()
+        private val vertexOrder: Map<VertexWithType, Int> = buildMap {
             vertexPostOrder.forEachIndexed { index, v ->
                 put(v, index)
             }
         }
 
-        private val immediateDominators: MutableMap<Vertex, Vertex> = mutableMapOf()
+        private val immediateDominators: MutableMap<VertexWithType, VertexWithType> = mutableMapOf()
 
 
         fun build(): DominatorTree {
@@ -52,7 +52,7 @@ class DominatorTree private constructor(val dominators: Map<Vertex, Vertex>, ove
                         continue
                     }
                     val oldImmediateDominator = immediateDominators[v]
-                    var newImmediateDominator: Vertex? = null
+                    var newImmediateDominator: VertexWithType? = null
                     val edges = graph.incomingEdges[v] ?: continue
                     for (edge in edges) {
                         immediateDominators[edge.source] ?: continue
@@ -68,7 +68,7 @@ class DominatorTree private constructor(val dominators: Map<Vertex, Vertex>, ove
             return DominatorTree(immediateDominators, graph.sourceVertex)
         }
 
-        private fun intersect(v1: Vertex, v2: Vertex): Vertex {
+        private fun intersect(v1: VertexWithType, v2: VertexWithType): VertexWithType {
             var vertex1 = v1
             var vertex2 = v2
             while (vertex1 != vertex2) {
@@ -81,6 +81,6 @@ class DominatorTree private constructor(val dominators: Map<Vertex, Vertex>, ove
             return vertex1
         }
 
-        private fun Vertex.order(): Int = vertexOrder[this] ?: error("couldn't find order for vertex $this")
+        private fun VertexWithType.order(): Int = vertexOrder[this] ?: error("couldn't find order for vertex $this")
     }
 }

@@ -1,5 +1,5 @@
 package graph
 
 abstract class DirectGraphWithSingleSource(edges: List<Edge>) : DirectedGraph(edges) {
-    abstract val sourceVertex: Vertex
+    abstract val sourceVertex: VertexWithType
 }

@@ -2,21 +2,21 @@ package graph
 
 open class DirectedGraph(edges: List<Edge>) {
 
-    open val adjacencyList: Map<Vertex, List<Edge>> = edges.groupBy { it.source }
-    open val incomingEdges: Map<Vertex, List<Edge>> = edges.groupBy { it.target }.toMutableMap()
+    open val adjacencyList: Map<VertexWithType, List<Edge>> = edges.groupBy { it.source }
+    open val incomingEdges: Map<VertexWithType, List<Edge>> = edges.groupBy { it.target }.toMutableMap()
 
-    private val usedInDfs: MutableSet<Vertex> = mutableSetOf()
+    private val usedInDfs: MutableSet<VertexWithType> = mutableSetOf()
 
-    fun getPostOrder(): List<Vertex> {
-        val result = mutableListOf<Vertex>()
+    fun getPostOrder(): List<VertexWithType> {
+        val result = mutableListOf<VertexWithType>()
         return result.also {
             runDfs({}, result::add)
         }
     }
 
     protected open fun runDfs(
-        enterFunction: (Vertex) -> Unit,
-        exitFunction: (Vertex) -> Unit,
+        enterFunction: (VertexWithType) -> Unit,
+        exitFunction: (VertexWithType) -> Unit,
         afterSubTreePassed: (Edge) -> Unit = {}
     ) {
         usedInDfs.clear()
@@ -27,9 +27,9 @@ open class DirectedGraph(edges: List<Edge>) {
     }
 
     private fun dfs(
-        v: Vertex,
-        enterFunction: (Vertex) -> Unit,
-        exitFunction: (Vertex) -> Unit,
+        v: VertexWithType,
+        enterFunction: (VertexWithType) -> Unit,
+        exitFunction: (VertexWithType) -> Unit,
         afterEdge: (Edge) -> Unit
     ) {
          enterFunction(v)

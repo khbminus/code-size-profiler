@@ -1,11 +1,11 @@
 package difference
 
 import graph.Edge
-import graph.Vertex
+import graph.VertexWithType
 
 class DifferenceGraph private constructor(
     edges: List<DifferenceEdge>,
-    private val vertexMap: Map<Vertex, DifferenceVertex>
+    private val vertexMap: Map<VertexWithType, DifferenceVertex>
 ) {
     val adjacencyList: Map<DifferenceVertex, List<DifferenceEdge>> = buildMap {
         vertexMap.values.forEach { put(it, emptyList()) }
@@ -21,11 +21,11 @@ class DifferenceGraph private constructor(
     val metaNodeAdjacencyList: Map<MetaNode, MutableSet<MetaNode>>
         get() = _metaNodeAdjacencyList
 
-    val inverseVertexMap: Map<DifferenceVertex, Vertex> = buildMap {
+    val inverseVertexMap: Map<DifferenceVertex, VertexWithType> = buildMap {
         vertexMap.forEach { (k, v) -> put(v, k) }
     }
 
-    fun getDifferenceVertex(v: Vertex) = vertexMap[v] ?: error("couldn't find any DifferenceNode for $v")
+    fun getDifferenceVertex(v: VertexWithType) = vertexMap[v] ?: error("couldn't find any DifferenceNode for $v")
 
     fun build(withCoercing: Boolean = false) {
         edgeDecomposition()
@@ -37,7 +37,7 @@ class DifferenceGraph private constructor(
     }
 
     private val metaNodes: MutableMap<DifferenceVertex, MetaNode> = mutableMapOf()
-    fun getMetaNodes(): Map<Vertex, MetaNode>  = metaNodes
+    fun getMetaNodes(): Map<VertexWithType, MetaNode>  = metaNodes
             .filterKeys(inverseVertexMap::containsKey)
             .mapKeys { (k, _) -> inverseVertexMap[k]!! }
 
@@ -105,15 +105,15 @@ class DifferenceGraph private constructor(
         }
     }
 
-    fun getAdjacencyListForVertex(v: Vertex): List<Vertex>? =
+    fun getAdjacencyListForVertex(v: VertexWithType): List<VertexWithType>? =
         adjacencyList[vertexMap[v]]?.map { inverseVertexMap[it.to]!! }
 
     companion object {
         fun buildCompressionGraph(
             edges1: List<Edge>,
-            nodes1: List<Vertex>,
+            nodes1: List<VertexWithType>,
             edges2: List<Edge>,
-            nodes2: List<Vertex>
+            nodes2: List<VertexWithType>
         ): DifferenceGraph {
             val differenceVertexes = buildMap {
                 val nodes1Set = nodes1.toSet()
