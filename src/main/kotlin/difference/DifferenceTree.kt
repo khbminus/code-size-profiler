@@ -39,8 +39,12 @@ class DifferenceTree private constructor(val parents: Map<String, String>, val n
                 compressionStateMap.compute(v) { _, state ->
                     val realState = state ?: v.calculateState()
                     val childrenState = compressionStateMap[u]
-                    if (childrenState == realState) realState
-                    else CompressionState.Mixed
+                    when {
+                        childrenState == realState -> realState
+                        childrenState == CompressionState.NotChanged -> realState
+                        realState == CompressionState.NotChanged -> childrenState
+                        else -> CompressionState.Mixed
+                    }
                 }
             }
         }
