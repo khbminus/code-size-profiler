@@ -44,17 +44,19 @@ class Dominators : CliktCommand(help = "Build dominator tree and get retained si
     override fun run() {
         val edgeEntries = Json.decodeFromString<List<EdgeEntry>>(graphDataFile.readText())
         val sizes = Json.decodeFromString<Map<String, VertexWithType>>(irSizeFile.readText())
+        sizes.forEach { (k, v) -> v.name = k }
 
         val nodes = sizes.toMutableMap()
         val edges = edgeEntries.filter { it.source != it.target }
             .filter { !removeUnknown || (it.source in nodes && it.target in nodes) }
             .map {
-                val source = nodes.getOrPut(it.source) { VertexWithType(0, "unknown") }
-                val target = nodes.getOrPut(it.target) { VertexWithType(0, "unknown") }
+                val source = nodes.getOrPut(it.source) { VertexWithType(it.source, 0, "unknown") }
+                val target = nodes.getOrPut(it.target) { VertexWithType(it.target, 0, "unknown") }
                 Edge(source, target)
             }
         val dominatorTree = DominatorTree.build(DirectedGraphWithFakeSource(edges))
-        val retainedSizes = nodes.mapValues { (_, node) -> VertexWithType(dominatorTree.getRetainedSize(node), node.type) }
+        val retainedSizes =
+            nodes.mapValues { (_, node) -> VertexWithType(node.name, dominatorTree.getRetainedSize(node), node.type) }
         when (outputFile.determineExtension()) {
             EXT.DISPLAY -> println(json.encodeToString(retainedSizes))
             EXT.JSON -> outputFile?.writeText(Json.encodeToString(retainedSizes))

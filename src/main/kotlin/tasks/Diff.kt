@@ -2,58 +2,107 @@ package tasks
 
 import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.parameters.arguments.argument
+import com.github.ajalt.clikt.parameters.arguments.multiple
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.types.file
 import graph.VertexWithType
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import java.util.*
 
 class Diff : CliktCommand(help = "get difference between to size files") {
     private val json = Json { prettyPrint = true }
-    private val file1 by argument("<1st input file>").file(
+    private val files by argument("<input files>").file(
         mustExist = true,
         canBeDir = false,
         mustBeReadable = true
-    )
-    private val file2 by argument("<2nd input file>").file(
-        mustExist = true,
-        canBeDir = false,
-        mustBeReadable = true
-    )
+    ).multiple()
+    private val exclude by option("--exclude", help = "substring of sqn to exclude")
 
     private val outputFile by option("-o", "--output").file()
     override fun run() {
-        val contentLeft = // TODO: check node type
-            Json.decodeFromString<Map<String, VertexWithType>>(file1.readText()).mapValues { (_, v) -> v.size }
-        val contentRight =
-            Json.decodeFromString<Map<String, VertexWithType>>(file2.readText()).mapValues { (_, v) -> v.size }
-        val deltaContent = buildMap {
-            (contentLeft.keys + contentRight.keys).forEach {
-                put(it, contentRight.getOrDefault(it, 0) - contentLeft.getOrDefault(it, 0))
+        val content = files.map {
+            Json.decodeFromString<Map<String, VertexWithType>>(it.readText())
+                .mapValues { (_, v) -> v.size }
+                .filterKeys { exclude?.let { ex -> ex !in it } ?: true }
+        }
+        var iterations = 1
+        val outputContent = buildMap<String, Map<String, Int>> {
+            put(files[0].name, content[0])
+            files.zip(content).zipWithNext().forEach { (a, b) ->
+                val (_, previousValues) = a
+                val (fileName, currentValues) = b
+                put("Δ (${iterations++})", buildMap {
+                    (currentValues.keys + previousValues.keys).forEach {
+                        put(it, currentValues.getOrDefault(it, 0) - previousValues.getOrDefault(it, 0))
+                    }
+                }.filterValues { it != 0 })
+                put(fileName.name, currentValues)
             }
-        }.filter { (_, v) -> v != 0 }
+        }
+        val columns = outputContent.keys.toList()
+        val rows = outputContent
+            .filterKeys { it.startsWith("Δ") }
+            .map { (_, v) -> v.keys }
+            .reduce(Set<String>::plus)
+            .toList().sortedBy {
+                content[1].getOrDefault(it, 0)
+            }.reversed()
         when (determineExtension()) {
-            EXT.DISPLAY -> deltaContent.printTable("IR Element", "Size in IR instructions")
-            EXT.JSON -> outputFile?.writeText(json.encodeToString(deltaContent))
+            EXT.JSON -> outputFile?.writeText(json.encodeToString(outputContent))
             EXT.JS -> outputFile?.writeText(
                 """
-                | export const kotlinDifferenceInfo = ${Json.encodeToString(deltaContent)}
+                | export const kotlinDifferenceInfo = ${Json.encodeToString(outputContent)}
                 """.trimMargin().trim()
             )
 
+            EXT.DISPLAY -> {
+
+                println(columns.joinToString(separator = ";", prefix = "name;"))
+                rows.forEach {
+                    println(outputContent.map { (_, v) -> v[it]?.toString() ?: "" }
+                        .joinToString(separator = ";", prefix = "$it;"))
+                }
+            }
+
             EXT.HTML -> {
-                outputFile?.writeText(
-                    deltaContent
-                        .entries
-                        .sortedBy { (_, v) -> -v }
+                val prefix = """
+                    | <!DOCTYPE html>
+                    | <html lang="en">
+                    | <head>
+                    | <style>
+                    | table, th, td {
+                    | border: 1px solid black;
+                    | border-collapse: collapse;
+                    | }
+                    | td {
+                    | text-align: center;
+                    | }
+                    | </style>
+                    |     <meta charset="UTF-8">
+                    |     <title>Difference between ${content.size} files</title></head>
+                    | <body>
+                    | <table>
+                    | <thead>
+                """.trimMargin()
+                val output = StringJoiner("\n")
+                output.add(prefix)
+                output.add(
+                    columns.joinToString(
+                        separator = "\n",
+                        prefix = "<th>Name</th>\n"
+                    ) { "<th>${it.escape()}</th>" })
+                output.add("</thead><tbody>")
+                rows.forEach {
+                    output.add(outputContent.map { (_, v) -> v[it]?.toString() ?: "" }
                         .joinToString(
-                            prefix = """
-                        <!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Difference between ${file1.name} and ${file2.name}</title></head><body><table><thead><tr><th>Ir Element</th><th>Size in IR instruction, &#916;</th></tr></thead><tbody>
-                    """.trimIndent(), postfix = "</tbody></table></body></html>", separator = ""
-                        ) { (k, v) ->
-                            "<tr><td>${k.escape()}</td><td>${v.toString().escape()}</td></tr>"
-                        }
-                )
+                            prefix = "<tr><td>${it.escape()}</td>",
+                            separator = "",
+                            postfix = "</tr>"
+                        ) { "<td>${it.escape()}</td>" })
+                }
+                output.add("</tbody></table></body></html>")
+                outputFile?.writeText(output.toString())
             }
         }
     }
@@ -70,18 +119,6 @@ class Diff : CliktCommand(help = "get difference between to size files") {
             "html" -> EXT.HTML
             else -> error("Invalid file format extension")
         }
-    }
-
-    private fun <A, B> Map<A, B>.printTable(keyName: String, valueName: String) {
-        val values = mapValues { (_, it) -> it.toString() }.mapKeys { (it, _) -> it.toString() }
-        val keyColumnSize = 2 + keyName.length.coerceAtLeast(values.maxOf { (k, _) -> k.length })
-        val valueColumnSize = 2 + valueName.length.coerceAtLeast(values.maxOf { (_, v) -> v.length })
-        println("|${keyName.padCenter(keyColumnSize)}|${valueName.padCenter(valueColumnSize)}|")
-        println("+${"-".repeat(keyColumnSize)}+${"-".repeat(valueColumnSize)}+")
-        values.forEach { (k, v) ->
-            println("|${k.padCenter(keyColumnSize)}|${v.padCenter(valueColumnSize)}|")
-        }
-
     }
 
     private fun String.padCenter(columnSize: Int): String {

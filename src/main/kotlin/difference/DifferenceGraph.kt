@@ -4,8 +4,8 @@ import graph.Edge
 import graph.VertexWithType
 
 class DifferenceGraph private constructor(
-    edges: List<DifferenceEdge>,
-    private val vertexMap: Map<VertexWithType, DifferenceVertex>
+    val edges: List<DifferenceEdge>,
+    private val vertexMap: Map<String, DifferenceVertex>
 ) {
     val adjacencyList: Map<DifferenceVertex, List<DifferenceEdge>> = buildMap {
         vertexMap.values.forEach { put(it, emptyList()) }
@@ -21,11 +21,11 @@ class DifferenceGraph private constructor(
     val metaNodeAdjacencyList: Map<MetaNode, MutableSet<MetaNode>>
         get() = _metaNodeAdjacencyList
 
-    val inverseVertexMap: Map<DifferenceVertex, VertexWithType> = buildMap {
+    val inverseVertexMap: Map<DifferenceVertex, String> = buildMap {
         vertexMap.forEach { (k, v) -> put(v, k) }
     }
 
-    fun getDifferenceVertex(v: VertexWithType) = vertexMap[v] ?: error("couldn't find any DifferenceNode for $v")
+    fun getDifferenceVertex(v: VertexWithType) = vertexMap[v.name] ?: error("couldn't find any DifferenceNode for $v")
 
     fun build(withCoercing: Boolean = false) {
         edgeDecomposition()
@@ -37,9 +37,9 @@ class DifferenceGraph private constructor(
     }
 
     private val metaNodes: MutableMap<DifferenceVertex, MetaNode> = mutableMapOf()
-    fun getMetaNodes(): Map<VertexWithType, MetaNode>  = metaNodes
-            .filterKeys(inverseVertexMap::containsKey)
-            .mapKeys { (k, _) -> inverseVertexMap[k]!! }
+    fun getMetaNodes(): Map<String, MetaNode> = metaNodes
+        .filterKeys(inverseVertexMap::containsKey)
+        .mapKeys { (k, _) -> inverseVertexMap[k]!! }
 
     private fun edgeDecomposition() {
         adjacencyList.forEach { (k, v) ->
@@ -105,8 +105,8 @@ class DifferenceGraph private constructor(
         }
     }
 
-    fun getAdjacencyListForVertex(v: VertexWithType): List<VertexWithType>? =
-        adjacencyList[vertexMap[v]]?.map { inverseVertexMap[it.to]!! }
+    fun getAdjacencyListForVertex(v: VertexWithType): List<String>? =
+        adjacencyList[vertexMap[v.name]]?.map { inverseVertexMap[it.to]!! }
 
     companion object {
         fun buildCompressionGraph(
@@ -115,23 +115,34 @@ class DifferenceGraph private constructor(
             edges2: List<Edge>,
             nodes2: List<VertexWithType>
         ): DifferenceGraph {
+            val nameToNodeMapLeft = buildMap {
+                nodes1.forEach {
+                    put(it.name, it)
+                }
+            }
+            val nameToNodeMapRight = buildMap {
+                nodes2.forEach {
+                    put(it.name, it)
+                }
+            }
             val differenceVertexes = buildMap {
-                val nodes1Set = nodes1.toSet()
-                val nodes2Set = nodes2.toSet()
-                val allNodes = (nodes1 + nodes2).toSet()
+                val nodes1Set = nodes1.map { it.name }.toSet()
+                val nodes2Set = nodes2.map { it.name }.toSet()
+                val allNodes = nodes1Set + nodes2Set
                 allNodes.forEach {
                     put(it, DifferenceVertex(getStatus(it, nodes1Set, nodes2Set)))
                 }
             }
             val differenceEdges = buildList {
-                val allEdges = (edges1 + edges2).toSet().toList()
-                val edges1Set = edges1.toSet()
-                val edges2Set = edges2.toSet()
+                val edges1Set = edges1.map { it.source.name to it.target.name }.toSet()
+                val edges2Set = edges2.map { it.source.name to it.target.name }.toSet()
+                val allEdges = edges1Set + edges2Set
                 allEdges.forEach {
+                    val (source, target) = it
                     add(
                         DifferenceEdge(
-                            differenceVertexes[it.source] ?: error("Couldn't find vertex ${it.source} in node list"),
-                            differenceVertexes[it.target] ?: error("Couldn't find vertex ${it.target} in node list"),
+                            differenceVertexes[source] ?: error("Couldn't find vertex $source in node list"),
+                            differenceVertexes[target] ?: error("Couldn't find vertex $target in node list"),
                             getStatus(it, edges1Set, edges2Set)
                         )
                     )

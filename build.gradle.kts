@@ -27,4 +27,5 @@ kotlin {
 
 application {
     mainClass.set("MainKt")
+    applicationDefaultJvmArgs = listOf("-Xss=64m")
 }

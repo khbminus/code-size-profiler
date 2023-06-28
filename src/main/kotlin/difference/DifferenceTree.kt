@@ -3,9 +3,13 @@ package difference
 import graph.VertexWithType
 
 class DifferenceTree private constructor(val parents: Map<String, String>, val nodes: Map<String, VertexWithType>) {
-    data class RetainedTree(val nodes: Map<String, VertexWithType>, val parents: Map<String, String>)
-    class DifferenceTreeVertex(val status: DifferenceStatus, val delta: Int) :
-        VertexWithType(delta, status.toString())
+    data class RetainedTree(val nodes: Map<String, VertexWithType>, val parents: Map<String, String>) {
+        init {
+            nodes.forEach { (k, v) -> v.name = k }
+        }
+    }
+    class DifferenceTreeVertex(name: String, val status: DifferenceStatus, val delta: Int) :
+        VertexWithType(name, delta, status.toString())
 
     private class DifferenceTreeBuilder(
         val nodes: Map<String, DifferenceTreeVertex>,
@@ -28,7 +32,7 @@ class DifferenceTree private constructor(val parents: Map<String, String>, val n
         fun build(): DifferenceTree {
             calculateCompressionState(root)
             return DifferenceTree(
-                parents, nodes.mapValues { (_, v) -> VertexWithType(v.delta, compressionStateMap[v]!!.toString()) }
+                parents, nodes.mapValues { (_, v) -> VertexWithType(v.name, v.delta, compressionStateMap[v]!!.toString()) }
             )
         }
 
@@ -74,6 +78,7 @@ class DifferenceTree private constructor(val parents: Map<String, String>, val n
                         name !in treeLeftSet -> {
                             put(
                                 name, DifferenceTreeVertex(
+                                    name,
                                     DifferenceStatus.FromRight,
                                     vertex.size
                                 )
@@ -84,6 +89,7 @@ class DifferenceTree private constructor(val parents: Map<String, String>, val n
                         name !in treeRightSet -> {
                             put(
                                 name, DifferenceTreeVertex(
+                                    name,
                                     DifferenceStatus.FromLeft,
                                     -vertex.size
                                 )
@@ -97,6 +103,7 @@ class DifferenceTree private constructor(val parents: Map<String, String>, val n
                             put(
                                 name,
                                 DifferenceTreeVertex(
+                                    name,
                                     DifferenceStatus.Both,
                                     fromRight.size - fromLeft.size
                                 )
@@ -111,12 +118,14 @@ class DifferenceTree private constructor(val parents: Map<String, String>, val n
                             val nameAdded = name
                             put(
                                 nameRemoved, DifferenceTreeVertex(
+                                    name,
                                     DifferenceStatus.FromLeft,
                                     -fromLeft.size
                                 )
                             )
                             put(
                                 nameAdded, DifferenceTreeVertex(
+                                    name,
                                     DifferenceStatus.FromRight,
                                     fromRight.size
                                 )
