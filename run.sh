@@ -36,6 +36,9 @@ echo "Building diff..."
 
 echo "Building diff of dominator trees..."
 "$GIT_ROOT/scripts/build-retained-diff.sh" "$OUTPUT_DATA"
-cd "$GIT_ROOT/visualization" && npm run build
 
+echo "Building diff htmls"
+"$GIT_ROOT/scripts/build-html-diff.sh" "$IR_LEFT" "$IR_RIGHT" "$OUTPUT_DATA"
+
+cd "$GIT_ROOT/visualization" && npm run build
 echo "built all visualization in $GIT_ROOT/visualization/dist"

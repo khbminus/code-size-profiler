@@ -3,6 +3,7 @@ package tasks
 import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.parameters.arguments.argument
 import com.github.ajalt.clikt.parameters.arguments.multiple
+import com.github.ajalt.clikt.parameters.options.flag
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.types.file
 import graph.VertexWithType
@@ -19,8 +20,13 @@ class Diff : CliktCommand(help = "get difference between to size files") {
     ).multiple()
     private val exclude by option("--exclude", help = "substring of sqn to exclude")
 
+    private val onlyAdded by option("--only-added", help = "Show only added elements").flag(default = false)
+    private val onlyDeleted by option("--only-deleted", help = "Show only deleted elements").flag(default = false)
+
     private val outputFile by option("-o", "--output").file()
     override fun run() {
+        require(!onlyAdded || !onlyDeleted) { "Not more --only-* flags should be enabled" }
+
         val content = files.map {
             Json.decodeFromString<Map<String, VertexWithType>>(it.readText())
                 .mapValues { (_, v) -> v.size }
@@ -43,11 +49,13 @@ class Diff : CliktCommand(help = "get difference between to size files") {
         val columns = outputContent.keys.toList()
         val rows = outputContent
             .filterKeys { it.startsWith("Δ") }
+            .asSequence()
             .map { (_, v) -> v.keys }
             .reduce(Set<String>::plus)
-            .toList().sortedBy {
-                content[1].getOrDefault(it, 0)
-            }.reversed()
+            .filter { (!onlyAdded || it !in content[0]) && (!onlyDeleted || it !in content.last()) }
+            .sortedByDescending {
+                outputContent["Δ (1)"]?.get(it) ?: 0
+            }
         when (determineExtension()) {
             EXT.JSON -> outputFile?.writeText(json.encodeToString(outputContent))
             EXT.JS -> outputFile?.writeText(

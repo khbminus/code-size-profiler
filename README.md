@@ -9,10 +9,8 @@ $ ./run.sh <Declaration IR Sizes of left file> \
            <DCE Graph of right file>
 ```
 
+This builds traversable graphs and treemaps (for left and right dumps), treemap of difference,
+difference of dominator trees and traversable difference of graphs. Moreover, it generates table of differences.
+
 After that you will get built html in `visualization/dist` (NB: all links are flatten to dist root, I personally
 run `http-server` in `dist/`)
-
-To build a html table of diff, use:
-```shell
-$ ./gradlew --args="diff <ir sizes.js> <ir sizes2.js>..."
-```
