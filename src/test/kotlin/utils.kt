@@ -1,10 +1,10 @@
 import graph.Edge
-import graph.Vertex
+import graph.VertexWithType
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
 
-infix fun Vertex.to(rhs: Vertex) = Edge(this, rhs)
-class Node(private val name: String, value: Int) : Vertex(value) {
+infix fun VertexWithType.to(rhs: VertexWithType) = Edge(this, rhs)
+class Node(name: String, value: Int) : VertexWithType(name, value, name) {
     override fun equals(other: Any?): Boolean {
         if (other !is Node) return false
         return name == other.name

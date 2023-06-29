@@ -1,20 +1,35 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 usage() {
-  printf "Usage: %s <ir-sizes left (json)> <dce graph left (json)> <ir-sizes right (json)> <dce graph right (json)>\n" "$0"
+  printf "Usage: %s [flags] <ir-sizes left (json)> <dce graph left (json)> <ir-sizes right (json)> <dce graph right (json)>\n" "$0"
+  printf "    -e [arg]    exclude some fqn from dump (could be used several times)"
   exit 1
 }
+while getopts "e:" opt; do
+  case "$opt" in
+    e) excluded+=("$OPTARG");;
+    ?) echo "invalid flag $OPTARG" && exit 1;;
+  esac
+done
+
+shift $((OPTIND - 1))
+
 if [ "$#" -ne 4 ]; then
   usage
 fi
-
-
+IR_LEFT=$(mktemp)
+IR_RIGHT=$(mktemp)
+GRAPH_LEFT=$(mktemp)
+GRAPH_RIGHT=$(mktemp)
 GIT_ROOT="$(git rev-parse --show-toplevel)"
-IR_LEFT=$(realpath "$1")
-IR_RIGHT=$(realpath "$3")
-GRAPH_LEFT=$(realpath "$2")
-GRAPH_RIGHT=$(realpath "$4")
 OUTPUT_DATA="$GIT_ROOT/visualization/src/resources"
+echo "tmp files: $IR_LEFT $IR_RIGHT $GRAPH_LEFT $GRAPH_RIGHT"
+echo "filtering..."
+"$GIT_ROOT/scripts/delete-from-ir" "${excluded[@]}" < "$1" > "$IR_LEFT"
+"$GIT_ROOT/scripts/delete-from-ir" "${excluded[@]}" < "$3" > "$IR_RIGHT"
+"$GIT_ROOT/scripts/delete-from-edges" "${excluded[@]}" < "$2" > "$GRAPH_LEFT"
+"$GIT_ROOT/scripts/delete-from-edges" "${excluded[@]}" < "$4" > "$GRAPH_RIGHT"
+
 cd "$GIT_ROOT"
 "$GIT_ROOT/scripts/init.sh"
 mkdir -p "$OUTPUT_DATA"
@@ -42,3 +57,5 @@ echo "Building diff htmls"
 
 cd "$GIT_ROOT/visualization" && npm run build
 echo "built all visualization in $GIT_ROOT/visualization/dist"
+
+rm "$IR_LEFT" "$IR_RIGHT" "$GRAPH_LEFT" "$GRAPH_RIGHT"

@@ -8,7 +8,7 @@ class CompressionTreeTests {
     fun `test tree`() {
         val leftNodes = buildMap {
             ('A'..'L').forEach {
-                put(it.toString(), VertexWithType(90 - it.code, it.toString().lowercase()))
+                put(it.toString(), VertexWithType(it.toString().lowercase(), 90 - it.code, it.toString().lowercase()))
             }
         }
         val rightNodes = buildMap {
@@ -20,7 +20,7 @@ class CompressionTreeTests {
                         'F' -> +3
                         else -> 0
                     }
-                    put(it.toString(), VertexWithType(90 - it.code + add, it.toString().lowercase()))
+                    put(it.toString(), VertexWithType(it.toString().lowercase(), 90 - it.code + add, it.toString().lowercase()))
                 }
             }
         }
@@ -44,14 +44,14 @@ class CompressionTreeTests {
         )
         assertEquals("Mixed", compressed.nodes["A"]!!.type)
         assertEquals("Mixed", compressed.nodes["B"]!!.type)
-        assertEquals("Mixed", compressed.nodes["C"]!!.type)
-        assertEquals("Mixed", compressed.nodes["G"]!!.type)
-        assertEquals("Mixed", compressed.nodes["I"]!!.type)
+        assertEquals("Removed", compressed.nodes["C"]!!.type)
+        assertEquals("Removed", compressed.nodes["G"]!!.type)
+        assertEquals("Removed", compressed.nodes["I"]!!.type)
         assertEquals("NotChanged", compressed.nodes["J"]!!.type)
         assertEquals("NotChanged", compressed.nodes["K"]!!.type)
         assertEquals("Added", compressed.nodes["F"]!!.type)
         assertEquals("Added", compressed.nodes["M"]!!.type)
-        assertEquals("Added", compressed.nodes["L (added)"]!!.type)
+        assertEquals("Added", compressed.nodes["L"]!!.type)
         assertEquals("Removed", compressed.nodes["H"]!!.type)
         assertEquals("Removed", compressed.nodes["L (removed)"]!!.type)
     }

@@ -1,7 +1,5 @@
 import dominator.DominatorTree
 import graph.DirectedGraphWithFakeSource
-import graph.Edge
-import graph.Vertex
 import org.junit.jupiter.api.Test
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
@@ -46,11 +44,11 @@ class DominatorTreeTests {
 
         dominatorTree.run {
             listOf(f, g, h, a, b).forEach {
-                assertEquals(it.value, getRetainedSize(it))
+                assertEquals(it.size, getRetainedSize(it))
             }
-            assertEquals(f.value + d.value, getRetainedSize(d))
-            assertEquals(e.value + g.value, getRetainedSize(e))
-            assertEquals(listOf(c, d, f, e, g, h).sumOf { it.value }, getRetainedSize(c))
+            assertEquals(f.size + d.size, getRetainedSize(d))
+            assertEquals(e.size + g.size, getRetainedSize(e))
+            assertEquals(listOf(c, d, f, e, g, h).sumOf { it.size }, getRetainedSize(c))
         }
     }
 
@@ -104,11 +102,11 @@ class DominatorTreeTests {
 
         dominatorTree.run {
             listOf(f, g, h, i, j, b, c).forEach {
-                assertEquals(it.value, getRetainedSize(it))
+                assertEquals(it.size, getRetainedSize(it))
             }
-            assertEquals(listOf(e, f, g).sumOf { it.value }, getRetainedSize(e))
-            assertEquals(listOf(i, j, h, e, f, g, d).sumOf { it.value }, getRetainedSize(d))
-            assertEquals(listOf(a, b, c, d, e, f, g, h, i, j).sumOf { it.value }, getRetainedSize(a))
+            assertEquals(listOf(e, f, g).sumOf { it.size }, getRetainedSize(e))
+            assertEquals(listOf(i, j, h, e, f, g, d).sumOf { it.size }, getRetainedSize(d))
+            assertEquals(listOf(a, b, c, d, e, f, g, h, i, j).sumOf { it.size }, getRetainedSize(a))
         }
     }
 }
