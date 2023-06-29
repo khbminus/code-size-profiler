@@ -10,7 +10,7 @@ open class DirectedGraph(edges: List<Edge>) {
     fun getPostOrder(): List<VertexWithType> {
         val result = mutableListOf<VertexWithType>()
         return result.also {
-            runDfs({}, result::add)
+            runDfs({}, exitFunction = result::add)
         }
     }
 
@@ -32,7 +32,7 @@ open class DirectedGraph(edges: List<Edge>) {
         exitFunction: (VertexWithType) -> Unit,
         afterEdge: (Edge) -> Unit
     ) {
-         enterFunction(v)
+        enterFunction(v)
         usedInDfs.add(v)
         adjacencyList[v]?.forEach {
             if (it.target !in usedInDfs) {

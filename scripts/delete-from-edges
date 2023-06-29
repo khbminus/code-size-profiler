@@ -1,0 +1,14 @@
+#!/usr/bin/env python3
+from json import loads, dumps
+from sys import argv, stdin, stdout
+
+from common import build, check
+
+build(argv[1:])
+
+loaded_graph = loads(stdin.read())
+stdout.write(
+    dumps(
+        [v for v in loaded_graph if not check(v["source"]) and not check(v["target"])]
+    )
+)
