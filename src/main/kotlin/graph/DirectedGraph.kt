@@ -5,7 +5,7 @@ open class DirectedGraph(edges: List<Edge>) {
     open val adjacencyList: Map<VertexWithType, List<Edge>> = edges.groupBy { it.source }
     open val incomingEdges: Map<VertexWithType, List<Edge>> = edges.groupBy { it.target }.toMutableMap()
 
-    private val usedInDfs: MutableSet<VertexWithType> = mutableSetOf()
+    protected val usedInDfs: MutableSet<VertexWithType> = mutableSetOf()
 
     fun getPostOrder(): List<VertexWithType> {
         val result = mutableListOf<VertexWithType>()
@@ -26,7 +26,7 @@ open class DirectedGraph(edges: List<Edge>) {
         }
     }
 
-    private fun dfs(
+    protected fun dfs(
         v: VertexWithType,
         enterFunction: (VertexWithType) -> Unit,
         exitFunction: (VertexWithType) -> Unit,

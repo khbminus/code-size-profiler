@@ -1,6 +1,7 @@
 package dominator
 
 import graph.DirectGraphWithSingleSource
+import graph.DirectedGraph
 import graph.Edge
 import graph.VertexWithType
 
@@ -10,7 +11,10 @@ import graph.VertexWithType
  *
  * Construction of the tree works in O(|V|^2), but practically faster than Lengauer-Tarjan algorithm
  */
-class DominatorTree private constructor(val dominators: Map<VertexWithType, VertexWithType>, override val sourceVertex: VertexWithType) :
+class DominatorTree private constructor(
+    val dominators: Map<VertexWithType, VertexWithType>,
+    override val sourceVertex: VertexWithType
+) :
     DirectGraphWithSingleSource(dominators.filter { (k, v) -> k != v }.map { (k, v) -> Edge(v, k) }) {
     private val retainedSizes: Map<VertexWithType, Int> = buildMap {
         runDfs(
@@ -27,10 +31,12 @@ class DominatorTree private constructor(val dominators: Map<VertexWithType, Vert
     fun getRetainedSize(vertex: VertexWithType) = retainedSizes[vertex] ?: vertex.size
 
     companion object {
-        fun build(graph: DirectGraphWithSingleSource) = DominatorTreeBuilder(graph).build()
+        fun build(graph: DirectedGraph, preprocessor: GraphPreprocessor) =
+            DominatorTreeBuilder(graph, preprocessor).build()
     }
 
-    private class DominatorTreeBuilder(private val graph: DirectGraphWithSingleSource) {
+    private class DominatorTreeBuilder(directedGraph: DirectedGraph, preprocessor: GraphPreprocessor) {
+        private val graph = preprocessor.preprocessGraph(directedGraph)
         private val vertexPostOrder: List<VertexWithType> = graph.getPostOrder()
         private val vertexOrder: Map<VertexWithType, Int> = buildMap {
             vertexPostOrder.forEachIndexed { index, v ->

@@ -6,6 +6,7 @@ import com.github.ajalt.clikt.parameters.options.flag
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.types.file
 import dominator.DominatorTree
+import dominator.IdentityGraphPreprocessor
 import graph.DirectedGraphWithFakeSource
 import graph.Edge
 import graph.VertexWithType
@@ -54,7 +55,7 @@ class Dominators : CliktCommand(help = "Build dominator tree and get retained si
                 val target = nodes.getOrPut(it.target) { VertexWithType(it.target, 0, "unknown") }
                 Edge(source, target)
             }
-        val dominatorTree = DominatorTree.build(DirectedGraphWithFakeSource(edges))
+        val dominatorTree = DominatorTree.build(DirectedGraphWithFakeSource(edges), IdentityGraphPreprocessor())
         val retainedSizes =
             nodes.mapValues { (_, node) -> VertexWithType(node.name, dominatorTree.getRetainedSize(node), node.type) }
         when (outputFile.determineExtension()) {

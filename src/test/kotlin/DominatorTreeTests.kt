@@ -1,4 +1,5 @@
 import dominator.DominatorTree
+import dominator.IdentityGraphPreprocessor
 import graph.DirectedGraphWithFakeSource
 import org.junit.jupiter.api.Test
 import kotlin.test.assertContains
@@ -29,7 +30,7 @@ class DominatorTreeTests {
             g to h
         )
         val graph = DirectedGraphWithFakeSource(edges)
-        val dominatorTree = DominatorTree.build(graph)
+        val dominatorTree = DominatorTree.build(graph, IdentityGraphPreprocessor())
 
         val adjList = dominatorTree.adjacencyList
         val root = adjList.keys.find { it !is Node }
@@ -79,7 +80,7 @@ class DominatorTreeTests {
             j to h
         )
 
-        val dominatorTree = DominatorTree.build(DirectedGraphWithFakeSource(edges))
+        val dominatorTree = DominatorTree.build(DirectedGraphWithFakeSource(edges), IdentityGraphPreprocessor())
 
         val adjList = dominatorTree.adjacencyList
         val root = adjList.keys.find { it !is Node }
