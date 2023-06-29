@@ -83,7 +83,7 @@ class DifferenceTree private constructor(val parents: Map<String, String>, val n
                                     vertex.size
                                 )
                             )
-                            newParents[name] = treeRight.parents[name]!!
+                            newParents[name] = treeRight.parents[name] ?: error("can't find parent in right tree for $name")
                         }
 
                         name !in treeRightSet -> {
@@ -94,7 +94,7 @@ class DifferenceTree private constructor(val parents: Map<String, String>, val n
                                     -vertex.size
                                 )
                             )
-                            newParents[name] = treeLeft.parents[name]!!
+                            newParents[name] = treeLeft.parents[name] ?: error("can't find parent in left tree for $name")
                         }
 
                         parentLeft == parentRight -> {
@@ -108,7 +108,7 @@ class DifferenceTree private constructor(val parents: Map<String, String>, val n
                                     fromRight.size - fromLeft.size
                                 )
                             )
-                            newParents[name] = parentLeft!!
+                            newParents[name] = parentLeft ?: error("can't find parent in left tree for $name")
                         }
 
                         else -> {

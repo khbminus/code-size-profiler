@@ -1,8 +1,7 @@
 package dominator
 
 import graph.DirectGraphWithSingleSource
-import graph.DirectedGraph
 
 interface GraphPreprocessor {
-    fun preprocessGraph(graph: DirectedGraph): DirectGraphWithSingleSource
+    fun preprocessGraph(graph: DirectGraphWithSingleSource): DirectGraphWithSingleSource
 }

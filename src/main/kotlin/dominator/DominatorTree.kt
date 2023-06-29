@@ -1,7 +1,6 @@
 package dominator
 
 import graph.DirectGraphWithSingleSource
-import graph.DirectedGraph
 import graph.Edge
 import graph.VertexWithType
 
@@ -31,11 +30,11 @@ class DominatorTree private constructor(
     fun getRetainedSize(vertex: VertexWithType) = retainedSizes[vertex] ?: vertex.size
 
     companion object {
-        fun build(graph: DirectedGraph, preprocessor: GraphPreprocessor) =
+        fun build(graph: DirectGraphWithSingleSource, preprocessor: GraphPreprocessor) =
             DominatorTreeBuilder(graph, preprocessor).build()
     }
 
-    private class DominatorTreeBuilder(directedGraph: DirectedGraph, preprocessor: GraphPreprocessor) {
+    private class DominatorTreeBuilder(directedGraph: DirectGraphWithSingleSource, preprocessor: GraphPreprocessor) {
         private val graph = preprocessor.preprocessGraph(directedGraph)
         private val vertexPostOrder: List<VertexWithType> = graph.getPostOrder()
         private val vertexOrder: Map<VertexWithType, Int> = buildMap {

@@ -1,6 +1,6 @@
 package graph
 
-open class DirectedGraph(edges: List<Edge>) {
+open class DirectedGraph(val edges: List<Edge>) {
 
     open val adjacencyList: Map<VertexWithType, List<Edge>> = edges.groupBy { it.source }
     open val incomingEdges: Map<VertexWithType, List<Edge>> = edges.groupBy { it.target }.toMutableMap()
@@ -14,7 +14,7 @@ open class DirectedGraph(edges: List<Edge>) {
         }
     }
 
-    protected open fun runDfs(
+    open fun runDfs(
         enterFunction: (VertexWithType) -> Unit,
         exitFunction: (VertexWithType) -> Unit,
         afterSubTreePassed: (Edge) -> Unit = {}

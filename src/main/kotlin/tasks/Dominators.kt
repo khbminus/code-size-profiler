@@ -5,9 +5,10 @@ import com.github.ajalt.clikt.parameters.arguments.argument
 import com.github.ajalt.clikt.parameters.options.flag
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.types.file
+import dominator.DeadNodesEliminationPreprocessor
 import dominator.DominatorTree
 import dominator.IdentityGraphPreprocessor
-import graph.DirectedGraphWithFakeSource
+import graph.DirectedGraphWithMergedRoots
 import graph.Edge
 import graph.VertexWithType
 import kotlinx.serialization.encodeToString
@@ -55,7 +56,16 @@ class Dominators : CliktCommand(help = "Build dominator tree and get retained si
                 val target = nodes.getOrPut(it.target) { VertexWithType(it.target, 0, "unknown") }
                 Edge(source, target)
             }
-        val dominatorTree = DominatorTree.build(DirectedGraphWithFakeSource(edges), IdentityGraphPreprocessor())
+        val roots = edgeEntries.filter { it.source == it.target }
+            .map { nodes.getOrPut(it.source) { VertexWithType(it.source, 0, "unknown") } }
+        val newGraph = DeadNodesEliminationPreprocessor()
+            .preprocessGraph(DirectedGraphWithMergedRoots.build(edges, roots))
+        nodes.clear()
+        nodes.putAll(newGraph.edges.flatMap { listOf(it.source, it.target) }.map { it.name to it })
+        val dominatorTree = DominatorTree.build(
+            newGraph,
+            IdentityGraphPreprocessor()
+        )
         val retainedSizes =
             nodes.mapValues { (_, node) -> VertexWithType(node.name, dominatorTree.getRetainedSize(node), node.type) }
         when (outputFile.determineExtension()) {
