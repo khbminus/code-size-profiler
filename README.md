@@ -9,6 +9,11 @@ $ ./run.sh -e kotlin.test -e <fqn> -e <fqn> <Declaration IR Sizes of left file> 
            <DCE Graph of right file>
 ```
 
+The script also could be used in one-dump mode:
+```shell
+$ ./run.sh [-e <fqn> [-e <fqn>...]] <IR Dump> <DCE Dump>
+```
+
 Use `-e` flag to filter dump for some fqns.
 
 This builds traversable graphs and treemaps (for left and right dumps), treemap of difference,
