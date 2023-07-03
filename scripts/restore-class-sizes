@@ -1,0 +1,22 @@
+#!/usr/bin/env python3
+from json import load, dump
+from sys import argv
+from typing import List
+
+with open(argv[1]) as ir_file:
+    ir = load(ir_file)
+for info in ir.values():
+    if info['type'] == "class":
+        print("Found class type. Restore isn't required.")
+        exit(0)
+with open(argv[2]) as graph_file:
+    graph: List[dict] = load(graph_file)
+
+for elem in filter(lambda x: x["description"] == "parent class", graph):
+    source = ir.get(elem["source"], {"size": 0})
+    target = ir.get(elem["target"], {"type": "class", "size": 0})
+    target["size"] += source["size"]
+    ir[elem["target"]] = target
+
+with open(argv[1], "w") as ir_file:
+    dump(ir, ir_file)
