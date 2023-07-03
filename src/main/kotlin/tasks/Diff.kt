@@ -4,6 +4,7 @@ import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.parameters.arguments.argument
 import com.github.ajalt.clikt.parameters.arguments.multiple
 import com.github.ajalt.clikt.parameters.options.flag
+import com.github.ajalt.clikt.parameters.options.multiple
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.types.file
 import graph.VertexWithType
@@ -18,6 +19,14 @@ class Diff : CliktCommand(help = "get difference between to size files") {
         canBeDir = false,
         mustBeReadable = true
     ).multiple()
+    private val edgeFiles by option("--edge-file", help = "additional edge file to restore nested size delta.")
+        .file(
+            mustExist = true,
+            canBeDir = false,
+            mustBeReadable = true
+        )
+        .multiple()
+    private val names by option("--name", help = "optional name for column").multiple()
     private val exclude by option("--exclude", help = "substring of sqn to exclude")
 
     private val onlyAdded by option("--only-added", help = "Show only added elements").flag(default = false)
@@ -25,25 +34,50 @@ class Diff : CliktCommand(help = "get difference between to size files") {
 
     private val outputFile by option("-o", "--output").file()
     override fun run() {
-        require(!onlyAdded || !onlyDeleted) { "Not more --only-* flags should be enabled" }
+        require(!onlyAdded || !onlyDeleted) { "Not more than one --only-* flags should be enabled" }
+        require(edgeFiles.isEmpty() || edgeFiles.size == files.size) { "Number of edge files should be either zero or number of ir files" }
 
         val content = files.map {
             Json.decodeFromString<Map<String, VertexWithType>>(it.readText())
                 .mapValues { (_, v) -> v.size }
                 .filterKeys { exclude?.let { ex -> ex !in it } ?: true }
         }
+        val additionalSizes = edgeFiles
+            .mapIndexed { idx, it ->
+                Json
+                    .decodeFromString<List<EdgeEntry>>(it.readText())
+                    .filter { it.description == "parent class" }
+                    .groupBy({ "${it.target} (Whole class)" }, EdgeEntry::source)
+                    .mapValues { (_, v) -> v.sumOf { content[idx].getOrDefault(it, 0) } }
+            }
+
         var iterations = 1
         val outputContent = buildMap<String, Map<String, Int>> {
-            put(files[0].name, content[0])
-            files.zip(content).zipWithNext().forEach { (a, b) ->
-                val (_, previousValues) = a
-                val (fileName, currentValues) = b
-                put("Δ (${iterations++})", buildMap {
+            put(
+                if (names.isEmpty()) files[0].name else names[0], if (additionalSizes.isEmpty()) content[0] else {
+                    content[0] + additionalSizes[0]
+                }
+            )
+            for (idx in 1..files.lastIndex) {
+                val previousValues = content[idx - 1]
+                val currentValues = content[idx]
+                val difference = buildMap {
                     (currentValues.keys + previousValues.keys).forEach {
                         put(it, currentValues.getOrDefault(it, 0) - previousValues.getOrDefault(it, 0))
                     }
-                }.filterValues { it != 0 })
-                put(fileName.name, currentValues)
+                }
+                val nestedDifference = if (edgeFiles.isEmpty()) emptyMap() else buildMap {
+                    val currentAdditionalValues = additionalSizes[idx]
+                    val previousAdditionalValues = additionalSizes[idx - 1]
+                    (currentAdditionalValues.keys + previousAdditionalValues.keys).forEach {
+                        put(
+                            it,
+                            currentAdditionalValues.getOrDefault(it, 0) - previousAdditionalValues.getOrDefault(it, 0)
+                        )
+                    }
+                }
+                put("Δ (${iterations++})", (difference + nestedDifference).filterValues { it != 0 })
+                put(if (names.size < idx) files[idx].name else names[idx], currentValues)
             }
         }
         val columns = outputContent.keys.toList()
@@ -127,13 +161,6 @@ class Diff : CliktCommand(help = "get difference between to size files") {
             "html" -> EXT.HTML
             else -> error("Invalid file format extension")
         }
-    }
-
-    private fun String.padCenter(columnSize: Int): String {
-        require(columnSize >= length) { "column size should be at least string length" }
-        val left = (columnSize - length) / 2
-        val right = (columnSize - length + 1) / 2
-        return "${" ".repeat(left)}$this${" ".repeat(right)}"
     }
 
     private fun String.escape() = replace("&", "&amp;")

@@ -61,7 +61,7 @@ echo "Building diff of dominator trees..."
 "$GIT_ROOT/scripts/build-retained-diff.sh" "$OUTPUT_DATA"
 
 echo "Building diff htmls"
-"$GIT_ROOT/scripts/build-html-diff.sh" "$IR_LEFT" "$IR_RIGHT" "$OUTPUT_DATA"
+"$GIT_ROOT/scripts/build-html-diff.sh" "$IR_LEFT" "$GRAPH_LEFT" "$IR_RIGHT" "$GRAPH_RIGHT" "$OUTPUT_DATA" "$1" "$3"
 
 cd "$GIT_ROOT/visualization"
 if [ "$#" -eq 2 ]; then
