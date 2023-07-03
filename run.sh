@@ -60,9 +60,10 @@ echo "Building diff..."
 echo "Building diff of dominator trees..."
 "$GIT_ROOT/scripts/build-retained-diff.sh" "$OUTPUT_DATA"
 
+if [ "$#" -eq 4 ]; then
 echo "Building diff htmls"
 "$GIT_ROOT/scripts/build-html-diff.sh" "$IR_LEFT" "$GRAPH_LEFT" "$IR_RIGHT" "$GRAPH_RIGHT" "$OUTPUT_DATA" "$1" "$3"
-
+fi
 cd "$GIT_ROOT/visualization"
 if [ "$#" -eq 2 ]; then
   cp src/index-one.html src/index.html
