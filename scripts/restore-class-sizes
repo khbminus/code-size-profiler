@@ -15,7 +15,8 @@ with open(argv[2]) as graph_file:
 for elem in filter(lambda x: x["description"] == "parent class", graph):
     source = ir.get(elem["source"], {"size": 0})
     target = ir.get(elem["target"], {"type": "class", "size": 0})
-    target["size"] += source["size"]
+    # target["size"] += source["size"]
+    target["type"] = "class"
     ir[elem["target"]] = target
 
 with open(argv[1], "w") as ir_file:

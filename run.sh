@@ -33,9 +33,12 @@ echo "filtering..."
 if [ "$#" -eq 4 ]; then
   "$GIT_ROOT/scripts/delete-from-ir" "${excluded[@]}" <"$3" >"$IR_RIGHT"
   "$GIT_ROOT/scripts/delete-from-edges" "${excluded[@]}" <"$4" >"$GRAPH_RIGHT"
+  "$GIT_ROOT/scripts/restore-class-sizes" "$IR_LEFT" "$GRAPH_LEFT"
+  "$GIT_ROOT/scripts/restore-class-sizes" "$IR_RIGHT" "$GRAPH_RIGHT"
 else
   "$GIT_ROOT/scripts/delete-from-ir" "${excluded[@]}" <"$1" >"$IR_RIGHT"
   "$GIT_ROOT/scripts/delete-from-edges" "${excluded[@]}" <"$2" >"$GRAPH_RIGHT"
+  "$GIT_ROOT/scripts/restore-class-sizes" "$IR_LEFT" "$GRAPH_LEFT"
 fi
 
 cd "$GIT_ROOT"
