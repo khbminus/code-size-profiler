@@ -49,6 +49,13 @@ class StructuredDiff : CliktCommand(help = "get difference in graph structure") 
         default = false
     )
 
+    private val metaNodeBuild by option("--metanode", help = "Build metanodes information and build compression graph")
+        .flag(
+            "--no-metanode",
+            default = false,
+            defaultForHelp = "Disabled due to bad performance"
+        )
+
     override fun run() {
         if (isTree) {
             compareTree()
@@ -58,7 +65,7 @@ class StructuredDiff : CliktCommand(help = "get difference in graph structure") 
     }
 
     private fun compareTree() {
-        val fakeSource = mapOf("Fake source" to VertexWithType("Fake source",0, "fake source"))
+        val fakeSource = mapOf("Fake source" to VertexWithType("Fake source", 0, "fake source"))
         val treeLeft = DifferenceTree.RetainedTree(
             Json.decodeFromString<Map<String, VertexWithType>>(sizeFileLeft.readText()) + fakeSource,
             Json.decodeFromString<Map<String, String>>(graphDataLeft.readText())
@@ -89,15 +96,20 @@ class StructuredDiff : CliktCommand(help = "get difference in graph structure") 
     private fun compareGraph() {
         val graphLeft = GraphData(sizeFileLeft, graphDataLeft)
         val graphRight = GraphData(sizeFileRight, graphDataRight)
-
-        val compressionGraph = DifferenceGraph.buildCompressionGraph(
-            graphLeft.edges, graphLeft.nodes.values.toList(),
-            graphRight.edges, graphRight.nodes.values.toList()
-        )
-        val time = measureTimeMillis {
-            compressionGraph.build()
+        var compressionGraph: DifferenceGraph
+        val buildGraphTime = measureTimeMillis {
+            compressionGraph = DifferenceGraph.buildCompressionGraph(
+                graphLeft.edges, graphLeft.nodes.values.toList(),
+                graphRight.edges, graphRight.nodes.values.toList()
+            )
         }
-        println("Building compression graph finished in $time ms")
+        println("Constructing of compression graph finished in ${buildGraphTime}ms")
+        if (metaNodeBuild) {
+            val time = measureTimeMillis {
+                compressionGraph.build()
+            }
+            println("Building compression graph finished in $time ms")
+        }
         outputGraph(compressionGraph, graphLeft, graphRight)
     }
 
@@ -121,7 +133,7 @@ class StructuredDiff : CliktCommand(help = "get difference in graph structure") 
                 Json.encodeToString(
                     MetaNodeDataEntry(
                         graph.metaNodeAdjacencyList.keys.map { metaNodesNames[it]!! },
-                        metaNodes.mapKeys { (k, _) -> k.toString() }.mapValues { (_, v) -> metaNodesNames[v]!! }
+                        metaNodes.mapKeys { (k, _) -> k }.mapValues { (_, v) -> metaNodesNames[v]!! }
                     )
                 )
         )
@@ -131,9 +143,8 @@ class StructuredDiff : CliktCommand(help = "get difference in graph structure") 
             graph.metaNodeAdjacencyList.keys.forEach {
                 val children = it.children.map { graph.inverseVertexMap[it]!! }
                 val name = metaNodesNames[it]!!
-                val size = children.sumOf {
-                    val name = it.toString()
-                    (graphRight.nodes[name]?.size ?: 0) - (graphLeft.nodes[name]?.size ?: 0)
+                val size = children.sumOf { nodeName ->
+                    (graphRight.nodes[nodeName]?.size ?: 0) - (graphLeft.nodes[nodeName]?.size ?: 0)
                 }
                 val type = when (it.status) {
                     DifferenceStatus.Both -> "both"
@@ -143,8 +154,8 @@ class StructuredDiff : CliktCommand(help = "get difference in graph structure") 
                 put(name, VertexWithType(name, size, type))
             }
             graph.inverseVertexMap.values.forEach { v ->
-                graphLeft.nodes[v.toString()]?.let { put(v.toString(), it) }
-                    ?: graphRight.nodes[v.toString()]?.let { put(v.toString(), it) }
+                graphLeft.nodes[v]?.let { put(v, it) }
+                    ?: graphRight.nodes[v]?.let { put(v, it) }
             }
         }
         nodesFile.writeText(nodesPrefix + Json.encodeToString(nodes))
@@ -174,7 +185,7 @@ class StructuredDiff : CliktCommand(help = "get difference in graph structure") 
         val nodeDiffFile = dir.resolve("node-diff.$extension")
         val difference = buildMap {
             graph.inverseVertexMap.forEach { (differenceVertex, vertex) ->
-                val name = vertex.toString()
+                val name = vertex
                 when (differenceVertex.status) {
                     DifferenceStatus.FromLeft -> {
                         val node = graphLeft.nodes[name]!!
@@ -202,10 +213,11 @@ class StructuredDiff : CliktCommand(help = "get difference in graph structure") 
             .decodeFromString<Map<String, VertexWithType>>(sizePath.readText()).toMutableMap()
 
         init {
-            _nodes.forEach {(k, v) ->
+            _nodes.forEach { (k, v) ->
                 v.name = k
             }
         }
+
         val nodes: Map<String, VertexWithType>
             get() = _nodes
         val edges =
