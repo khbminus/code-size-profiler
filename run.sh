@@ -5,6 +5,9 @@ usage() {
   printf "    -e [arg]    exclude some fqn from dump (could be used several times)\n"
   exit 1
 }
+
+declare -a excluded
+
 while getopts "e:" opt; do
   case "$opt" in
   e) excluded+=("$OPTARG") ;;
