@@ -20,8 +20,7 @@ Use `-e` flag to filter dump for some fqns.
 This builds traversable graphs and treemaps (for left and right dumps), treemap of difference,
 difference of dominator trees and traversable difference of graphs. Moreover, it generates table of differences.
 
-After that you will get built html in `visualization/dist` (NB: all links are flatten to dist root, I personally
-run `http-server` in `dist/`)
+After it, you can start server with `scripts/server.sh` file.
 
 # Traverse Graph
 
