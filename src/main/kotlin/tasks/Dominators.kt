@@ -83,7 +83,7 @@ class Dominators : CliktCommand(help = "Build dominator tree and get retained si
                 .mapKeys { (it, _) -> it.toString() }
                 .mapValues { (_, it) -> it.toString() }
             when (edgesFile.determineExtension()) {
-                EXT.DISPLAY -> println(json.encodeToString(parents))
+                EXT.DISPLAY -> Unit
                 EXT.JSON -> edgesFile?.writeText(Json.encodeToString(parents))
                 EXT.JS -> edgesFile?.writeText(
                     """
