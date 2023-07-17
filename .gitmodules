@@ -1,1 +1,4 @@
 
+[submodule "visualization"]
+	path = visualization
+	url = https://github.com/khbminus/code-size-profiling-visualization.git
