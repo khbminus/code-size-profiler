@@ -10,28 +10,49 @@ data class CodeMapping(val lines: List<List<CodeMappingEntry>>) {
             val base64Lines = inputString.split(";")
             return CodeMapping(
                 lines = base64Lines.map {
+                    var accumulatedCodeColumn = 0
+                    var accumulatedSourceFileIndex = 0
+                    var accumulatedFileLine = 0
+                    var accumulatedFileColumn = 0
+                    var accumulatedName = 0
                     it.split(",").map {
                         val decoded = decoder.decode(it)
                         when (decoded.size) {
-                            1 -> CodeMappingEntry.NoSourceEntry(decoded[0])
+                            1 -> {
+                                accumulatedCodeColumn += decoded[0]
+                                CodeMappingEntry.NoSourceEntry(accumulatedCodeColumn)
+                            }
                             4 -> {
                                 val (generatedStartingColumn, sourceListIndex, sourceFileLine, sourceFileColumn) = decoded
+
+                                accumulatedCodeColumn += generatedStartingColumn
+                                accumulatedSourceFileIndex += sourceListIndex
+                                accumulatedFileLine += sourceFileLine
+                                accumulatedFileColumn += sourceFileColumn
+
                                 CodeMappingEntry.NotNamedSourceEntry(
-                                    generatedStartingColumn,
-                                    sourceListIndex,
-                                    sourceFileLine,
-                                    sourceFileColumn
+                                    accumulatedCodeColumn,
+                                    accumulatedSourceFileIndex,
+                                    accumulatedFileLine,
+                                    accumulatedFileColumn
                                 )
                             }
 
                             5 -> {
                                 val (generatedStartingColumn, sourceListIndex, sourceFileLine, sourceFileColumn, sourceName) = decoded
+
+                                accumulatedCodeColumn += generatedStartingColumn
+                                accumulatedSourceFileIndex += sourceListIndex
+                                accumulatedFileLine += sourceFileLine
+                                accumulatedFileColumn += sourceFileColumn
+                                accumulatedName += sourceName
+
                                 CodeMappingEntry.NamedSourceEntry(
-                                    generatedStartingColumn,
-                                    sourceListIndex,
-                                    sourceFileLine,
-                                    sourceFileColumn,
-                                    sourceName
+                                    accumulatedCodeColumn,
+                                    accumulatedSourceFileIndex,
+                                    accumulatedFileLine,
+                                    accumulatedFileColumn,
+                                    accumulatedName
                                 )
                             }
 
