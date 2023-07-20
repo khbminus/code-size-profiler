@@ -22,6 +22,7 @@ data class CodeMapping(val lines: List<List<CodeMappingEntry>>) {
                                 accumulatedCodeColumn += decoded[0]
                                 CodeMappingEntry.NoSourceEntry(accumulatedCodeColumn)
                             }
+
                             4 -> {
                                 val (generatedStartingColumn, sourceListIndex, sourceFileLine, sourceFileColumn) = decoded
 
@@ -59,6 +60,7 @@ data class CodeMapping(val lines: List<List<CodeMappingEntry>>) {
                             else -> error("invalid entry $it: a result array size should be 1, 4 or 5")
                         }
                     }
+                        .sortedBy { it.generatedStartingColumn }
                 }
             )
         }

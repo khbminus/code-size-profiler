@@ -4,8 +4,10 @@ import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.parameters.arguments.argument
 import com.github.ajalt.clikt.parameters.types.path
 import kotlinx.serialization.json.Json
+import sourcemaps.CodeMapping
 import sourcemaps.SourceMapFile
 import java.nio.file.Path
+import kotlin.io.path.readLines
 import kotlin.io.path.readText
 
 class SourceMaps : CliktCommand(help = "Read and process sourcemap") {
@@ -16,6 +18,6 @@ class SourceMaps : CliktCommand(help = "Read and process sourcemap") {
     )
     override fun run() {
         val sourceMap = Json.decodeFromString<SourceMapFile>(sourceMapFile.readText())
-        println(sourceMap)
+        sourceMap.buildSegments().forEach { println(it) }
     }
 }
