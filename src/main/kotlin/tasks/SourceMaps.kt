@@ -91,29 +91,18 @@ class BuildKotlinWatSegments : CliktCommand(help = "test command. Will be remove
             while (currentWatSegmentIndex < watSegments.size && watSegments[currentWatSegmentIndex].endOffsetGenerated <= ktSegment.endOffsetGenerated) {
                 currentWatSegmentIndex++
             }
-            val ktText = kotlinTexts[ktSegment.sourceFileIndex]!!.getChunk(
-                ktSegment.sourceStartFileLine,
-                ktSegment.sourceStartLineColumn,
-                ktSegment.sourceEndFileLine,
-                ktSegment.sourceEndLineColumn
+            val watSegment = watSegments[startPosition].copy(
+                endOffsetGenerated = watSegments[currentWatSegmentIndex - 1].startOffsetGenerated,
+                sourceEndFileLine = watSegments[currentWatSegmentIndex - 1].sourceEndFileLine,
+                sourceEndLineColumn = watSegments[currentWatSegmentIndex - 1].sourceEndLineColumn
             )
-            val watText = watSegments
-                .subList(startPosition, currentWatSegmentIndex)
-                .joinToString(separator = "") { watSegment ->
-                    watTexts[watSegment.sourceFileIndex]!!.getChunk(
-                        watSegment.sourceStartFileLine,
-                        watSegment.sourceStartLineColumn,
-                        watSegment.sourceEndFileLine,
-                        watSegment.sourceEndLineColumn
-                    )
-                }
-            MatchingSegment(ktText, watText)
+            MatchingSegment(ktSegment, watSegment)
         }
-        outputFile?.writeText(json.encodeToString(matched.filterNotNull()))
+        outputFile?.writeText(Json.encodeToString(matched.filterNotNull()))
     }
 
     @Serializable
-    data class MatchingSegment(val kotlinText: String?, val watText: String)
+    data class MatchingSegment(val kotlinSegment: SourceMapSegment, val watSegment: SourceMapSegment)
 
 }
 
