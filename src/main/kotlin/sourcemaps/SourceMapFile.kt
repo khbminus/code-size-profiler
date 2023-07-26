@@ -19,7 +19,7 @@ data class SourceMapFile(
     }
 
     fun buildSegments(): List<SourceMapSegment> {
-        val fileEntries: Array<TreeSet<SourceFileEntry>> = Array(sources.size) { TreeSet() }
+        val fileEntries: Array<TreeSet<FileCursor>> = Array(sources.size) { TreeSet() }
         for (line in mappings.lines) {
             line.forEach { entry ->
                 val (file, fileLine, fileColumn) = when (entry) {
@@ -32,7 +32,7 @@ data class SourceMapFile(
                 }
                 if (file === null || fileLine === null || fileColumn === null)
                     return@forEach
-                val fileEntry = SourceFileEntry(fileLine, fileColumn)
+                val fileEntry = FileCursor(fileLine, fileColumn)
 
                 require(file < fileEntries.size) { "Entry $entry has invalid file > ${fileEntries.size}" }
                 if(fileEntry in fileEntries[file]) {
@@ -52,17 +52,15 @@ data class SourceMapFile(
                     if (file === null || fileLine === null || fileColumn === null)
                         return@forEach
                     val endFilePosition =
-                        fileEntries[file].higher(SourceFileEntry(fileLine, fileColumn))
-                            ?: SourceFileEntry(Int.MAX_VALUE, 0)
+                        fileEntries[file].higher(FileCursor(fileLine, fileColumn))
+                            ?: FileCursor(Int.MAX_VALUE, 0)
                     add(
                         SourceMapSegment(
                             startOffsetGenerated = startOffset,
                             endOffsetGenerated = endOffset,
                             sourceFileIndex = file,
-                            sourceStartFileLine = fileLine,
-                            sourceStartLineColumn = fileColumn,
-                            sourceEndFileLine = endFilePosition.line,
-                            sourceEndLineColumn = endFilePosition.column
+                            startCursor = FileCursor(fileLine, fileColumn),
+                            endCursor = FileCursor(endFilePosition.line, endFilePosition.column)
                         )
                     )
                 }
@@ -74,13 +72,6 @@ data class SourceMapFile(
         is CodeMapping.CodeMappingEntry.NoSourceEntry -> listOf(null, null, null)
         is CodeMapping.CodeMappingEntry.NotNamedSourceEntry -> listOf(sourceListIndex, sourceFileLine, sourceFileColumn)
         is CodeMapping.CodeMappingEntry.NamedSourceEntry -> listOf(sourceListIndex, sourceFileLine, sourceFileColumn)
-    }
-
-    private data class SourceFileEntry(val line: Int, val column: Int) : Comparable<SourceFileEntry> {
-        override fun compareTo(other: SourceFileEntry): Int {
-            val result = line.compareTo(other.line)
-            return if (result == 0) column.compareTo(other.column) else result
-        }
     }
 
 }

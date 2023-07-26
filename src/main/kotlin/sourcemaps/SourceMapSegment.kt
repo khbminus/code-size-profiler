@@ -7,8 +7,6 @@ data class SourceMapSegment(
     val startOffsetGenerated: Int,
     val endOffsetGenerated: Int,
     val sourceFileIndex: Int,
-    val sourceStartFileLine: Int,
-    val sourceStartLineColumn: Int,
-    val sourceEndFileLine: Int,
-    val sourceEndLineColumn: Int
+    val startCursor: FileCursor,
+    val endCursor: FileCursor,
 )

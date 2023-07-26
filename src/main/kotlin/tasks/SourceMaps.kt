@@ -73,10 +73,6 @@ class BuildKotlinWatSegments : CliktCommand(help = "test command. Will be remove
             kotlinSourceMap.sourcesContent?.get(index)?.lines()
                 ?: File(path).takeIf{it.isFile && it.canRead() && it.exists()}?.readLines()
         }
-        val watTexts = watSourceMap.sources.mapIndexed { index, path ->
-            watSourceMap.sourcesContent?.get(index)?.lines()
-                ?: File(path).takeIf { it.isFile && it.canRead() && it.exists() }?.readLines()
-        }
 
         var currentWatSegmentIndex = 0
         val matched = kotlinSegments.map { ktSegment ->
@@ -93,8 +89,7 @@ class BuildKotlinWatSegments : CliktCommand(help = "test command. Will be remove
             }
             val watSegment = watSegments[startPosition].copy(
                 endOffsetGenerated = watSegments[currentWatSegmentIndex - 1].startOffsetGenerated,
-                sourceEndFileLine = watSegments[currentWatSegmentIndex - 1].sourceEndFileLine,
-                sourceEndLineColumn = watSegments[currentWatSegmentIndex - 1].sourceEndLineColumn
+                endCursor = watSegments[currentWatSegmentIndex - 1].endCursor
             )
             MatchingSegment(ktSegment, watSegment)
         }
