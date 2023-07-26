@@ -102,20 +102,3 @@ class BuildKotlinWatSegments : CliktCommand(help = "test command. Will be remove
     data class MatchingSegment(val kotlinSegment: SourceMapSegment, val watSegment: SourceMapSegment)
 
 }
-
-private fun List<String>.getChunk(startLine: Int, startColumn: Int, endLine: Int, endColumn: Int): String {
-    val endLineFixed = endLine.coerceAtMost(size)
-
-    if (startLine >= size) {
-        return ""
-    }
-    if (startLine == endLineFixed) {
-        return get(startLine).substring(
-            startColumn,
-            endColumn
-        )
-    }
-    val prefix = get(startLine).substring(startColumn)
-    val suffix = if (endLineFixed < size) get(endLineFixed).substring(0, endColumn) else ""
-    return (listOf(prefix) + subList(startLine + 1, endLineFixed) + listOf(suffix)).joinToString(separator = "\n")
-}
