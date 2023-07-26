@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+usage() {
+    printf "Usage: %s <.map file> <.wat.map file>\n" "$0"
+    exit 1
+}
 set -Eeuo pipefail
 
 GIT_ROOT="$(git rev-parse --show-toplevel)"
@@ -9,7 +13,7 @@ WAT_SOURCEMAP=$(realpath "$2")
 KT_SEGMENT=$(mktemp)
 WAT_SEGMENT=$(mktemp)
 
-OUTPUT_DIR="$GIT_ROOT/visualization/source-maps/"
+OUTPUT_DIR="$GIT_ROOT/visualization/source-maps"
 
 mkdir -p "$OUTPUT_DIR"
 cd "$GIT_ROOT"

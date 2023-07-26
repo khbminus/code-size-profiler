@@ -65,3 +65,5 @@ if [ "$#" -eq 4 ]; then
   echo "Building diff htmls"
   "$GIT_ROOT/scripts/build-html-diff.sh" "$IR_LEFT" "$GRAPH_LEFT" "$IR_RIGHT" "$GRAPH_RIGHT" "$OUTPUT_DATA" "$1" "$3"
 fi
+echo "Done."
+echo "If you want build mapping from kotlin to wasm please consider to run scripts/generate-source-map script"
