@@ -3,6 +3,7 @@ package tasks
 import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.core.subcommands
 import com.github.ajalt.clikt.parameters.arguments.argument
+import com.github.ajalt.clikt.parameters.options.flag
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.types.file
 import com.github.ajalt.clikt.parameters.types.path
@@ -28,10 +29,11 @@ class GetSegments : CliktCommand(help = "Read and process sourcemap") {
         canBeDir = false
     )
     private val chunkedFile by option("-o", help = "output file for dumped chunks").file()
+    private val quiet by option("-q", "--quiet", help = "disable warnings").flag(default = false)
     private val json = Json { prettyPrint = true }
     override fun run() {
         val sourceMap = Json.decodeFromString<SourceMapFile>(sourceMapFile.readText())
-        val segments = sourceMap.buildSegments()
+        val segments = sourceMap.buildSegments(quiet)
         chunkedFile?.writeText(json.encodeToString(segments))
     }
 }

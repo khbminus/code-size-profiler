@@ -18,7 +18,7 @@ data class SourceMapFile(
         require(sourcesContent == null || sourcesContent.size == sources.size) { "SourceContent neither absent or equal sized with sources" }
     }
 
-    fun buildSegments(): List<SourceMapSegment> {
+    fun buildSegments(quiet: Boolean = false): List<SourceMapSegment> {
         val fileEntries: Array<TreeSet<FileCursor>> = Array(sources.size) { TreeSet() }
         for (line in mappings.lines) {
             line.forEach { entry ->
@@ -35,7 +35,7 @@ data class SourceMapFile(
                 val fileEntry = FileCursor(fileLine, fileColumn)
 
                 require(file < fileEntries.size) { "Entry $entry has invalid file > ${fileEntries.size}" }
-                if(fileEntry in fileEntries[file]) {
+                if(!quiet && fileEntry in fileEntries[file]) {
                     println("\u001b[31m Warning: Duplicate index for $file built for $entry\u001b[0m")
                 }
                 fileEntries[file].add(fileEntry)

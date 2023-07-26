@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+GIT_ROOT="$(git rev-parse --show-toplevel)"
+
+KT_SOURCEMAP=$(realpath "$1")
+WAT_SOURCEMAP=$(realpath "$2")
+
+KT_SEGMENT=$(mktemp)
+WAT_SEGMENT=$(mktemp)
+
+OUTPUT_DIR="$GIT_ROOT/visualization/source-maps/"
+
+mkdir -p "$OUTPUT_DIR"
+cd "$GIT_ROOT"
+cp "$KT_SOURCEMAP" "$OUTPUT_DIR/kotlin.map"
+cp "$WAT_SOURCEMAP" "$OUTPUT_DIR/wat.map"
+
+echo "Making segments for kotlin sourcemap"
+"$GIT_ROOT/gradlew" -q run --args="source-maps get-segments -q $KT_SOURCEMAP -o $KT_SEGMENT"
+echo "Making segments for wat sourcemap"
+"$GIT_ROOT/gradlew" -q run --args="source-maps get-segments -q $WAT_SOURCEMAP -o $WAT_SEGMENT"
+echo "Baking..."
+"$GIT_ROOT/gradlew" -q run --args="source-maps build-kotlin-wat-segments $KT_SEGMENT $WAT_SEGMENT $KT_SOURCEMAP $WAT_SOURCEMAP -o $OUTPUT_DIR/segments.json"
