@@ -25,7 +25,7 @@ After it, you can start server with `scripts/server.sh` file.
 # Traverse Graph
 
 This page allows seeing the DCE graph structure.
-The node is referring to IR size of the node.
+The node is referring to the IR size of the node.
 To start:
 
 * check some nodes in the menu on the right (NB: the search bar could
@@ -39,9 +39,10 @@ the element. To go back, click on the name above.
 
 The right panel is used for filtering & choosing the size mode.
 
-# Dominator tree
+# Sourcemap
 
-This page shows the structure of the dominator tree. The collapsable/expandable nodes have name on the left.
+A page inspired by [Godbolt](https://godbolt.org). The page has two sides: on the left there are several kotlin files (
+use the selector to choose the right one). The right side has a WAT text of compiled .wasm file. On hover in colored
+area the other side will scroll to chosen color.
 
-The page supports panning and zooming. The right pane is used to choose non-zero subtrees starting from checked nodes.
-
+To compile this page use `generate-source-map script`:

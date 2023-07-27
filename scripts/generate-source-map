@@ -10,19 +10,29 @@ GIT_ROOT="$(git rev-parse --show-toplevel)"
 KT_SOURCEMAP=$(realpath "$1")
 WAT_SOURCEMAP=$(realpath "$2")
 
+FIXED_KT_SOURCEMAP=$(mktemp)
+FIXED_WAT_SOURCEMAP=$(mktemp)
+echo "FIXED_KT: $FIXED_KT_SOURCEMAP"
+echo "FIXED_WAT: $FIXED_WAT_SOURCEMAP"
 KT_SEGMENT=$(mktemp)
 WAT_SEGMENT=$(mktemp)
+echo "KT_SEGMENTS: $KT_SEGMENT"
+echo "WAT_SEGMENTS: $WAT_SEGMENT"
 
 OUTPUT_DIR="$GIT_ROOT/visualization/source-maps"
 
+echo "Fixing sourcemaps sources paths..."
+"$GIT_ROOT/scripts/fix-json-paths" "$KT_SOURCEMAP" "$FIXED_KT_SOURCEMAP" "kotlin"
+"$GIT_ROOT/scripts/fix-json-paths" "$WAT_SOURCEMAP" "$FIXED_WAT_SOURCEMAP" "wat"
+
 mkdir -p "$OUTPUT_DIR"
 cd "$GIT_ROOT"
-cp "$KT_SOURCEMAP" "$OUTPUT_DIR/kotlin.map"
-cp "$WAT_SOURCEMAP" "$OUTPUT_DIR/wat.map"
+cp "$FIXED_KT_SOURCEMAP" "$OUTPUT_DIR/kotlin.map"
+cp "$FIXED_WAT_SOURCEMAP" "$OUTPUT_DIR/wat.map"
 
 echo "Making segments for kotlin sourcemap"
-"$GIT_ROOT/gradlew" -q run --args="source-maps get-segments -q $KT_SOURCEMAP -o $KT_SEGMENT"
+"$GIT_ROOT/gradlew" -q run --args="source-maps get-segments -q $FIXED_KT_SOURCEMAP -o $KT_SEGMENT"
 echo "Making segments for wat sourcemap"
-"$GIT_ROOT/gradlew" -q run --args="source-maps get-segments -q $WAT_SOURCEMAP -o $WAT_SEGMENT"
+"$GIT_ROOT/gradlew" -q run --args="source-maps get-segments -q $FIXED_WAT_SOURCEMAP -o $WAT_SEGMENT"
 echo "Baking..."
-"$GIT_ROOT/gradlew" -q run --args="source-maps build-kotlin-wat-segments $KT_SEGMENT $WAT_SEGMENT $KT_SOURCEMAP $WAT_SOURCEMAP -o $OUTPUT_DIR/segments.json"
+"$GIT_ROOT/gradlew" -q run --args="source-maps build-kotlin-wat-segments $KT_SEGMENT $WAT_SEGMENT $FIXED_KT_SOURCEMAP $FIXED_WAT_SOURCEMAP -o $OUTPUT_DIR/segments.json"
