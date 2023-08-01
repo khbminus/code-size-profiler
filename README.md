@@ -1,3 +1,5 @@
+[![Qodana](https://github.com/khbminus/code-size-profiler/actions/workflows/qodana.yaml/badge.svg)](https://github.com/khbminus/code-size-profiler/actions/workflows/qodana.yaml)
+
 To run this script, you need to generate dumps with the patched compiler (currently branch `dce-info-json-fix`).
 
 How to use:
