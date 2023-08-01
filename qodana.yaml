@@ -25,6 +25,7 @@ linter: jetbrains/qodana-jvm:latest
 include:
   - name: UnnecessaryVariable
   - name: KotlinUnusedImport
+  - name: JvmCoverageInspection
 exclude:
   - name: All
     paths:
