@@ -2,7 +2,6 @@
 import json
 import sys
 input_path = sys.argv[1]
-output_path = sys.argv[2]
 
 with open(input_path, "r") as input_file:
     loaded_json = json.load(input_file)
@@ -10,5 +9,5 @@ with open(input_path, "r") as input_file:
         if "displayName" in loaded_json[key]:
             displayName = loaded_json[key]["displayName"]
             loaded_json[key]["displayName"] = displayName if not displayName.startswith("[ ") else displayName[2:]
-    with open(output_path, "w") as output_file:
-        json.dump(loaded_json, output_file)
+with open(input_path, "w") as output_file:
+    json.dump(loaded_json, output_file)

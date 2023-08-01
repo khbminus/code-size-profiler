@@ -33,11 +33,13 @@ rm -rf "$OUTPUT_DATA/left-graph" "$OUTPUT_DATA/right-graph" "$OUTPUT_DATA/retain
 mkdir -p "$OUTPUT_DATA/left-graph" "$OUTPUT_DATA/retained-left"
 echo "filtering..."
 "$GIT_ROOT/scripts/delete-from-ir" "${excluded[@]}" <"$1" >"$IR_LEFT"
+"$GIT_ROOT/scripts/fix-display-name" "$IR_LEFT"
 "$GIT_ROOT/scripts/delete-from-edges" "${excluded[@]}" <"$2" >"$GRAPH_LEFT"
 
 if [ "$#" -eq 4 ]; then
   mkdir -p "$OUTPUT_DATA/right-graph" "$OUTPUT_DATA/retained-right"
   "$GIT_ROOT/scripts/delete-from-ir" "${excluded[@]}" <"$3" >"$IR_RIGHT"
+  "$GIT_ROOT/scripts/fix-display-name" "$IR_RIGHT"
   "$GIT_ROOT/scripts/delete-from-edges" "${excluded[@]}" <"$4" >"$GRAPH_RIGHT"
   "$GIT_ROOT/scripts/restore-class-sizes" "$IR_LEFT" "$GRAPH_LEFT"
   "$GIT_ROOT/scripts/restore-class-sizes" "$IR_RIGHT" "$GRAPH_RIGHT"

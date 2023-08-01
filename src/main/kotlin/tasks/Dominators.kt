@@ -67,7 +67,14 @@ class Dominators : CliktCommand(help = "Build dominator tree and get retained si
             IdentityGraphPreprocessor()
         )
         val retainedSizes =
-            nodes.mapValues { (_, node) -> VertexWithType(node.name, dominatorTree.getRetainedSize(node), node.type) }
+            nodes.mapValues { (_, node) ->
+                VertexWithType(
+                    node.name,
+                    dominatorTree.getRetainedSize(node),
+                    node.type,
+                    node.displayName
+                )
+            }
         when (outputFile.determineExtension()) {
             EXT.DISPLAY -> println(json.encodeToString(retainedSizes))
             EXT.JSON -> outputFile?.writeText(Json.encodeToString(retainedSizes))
