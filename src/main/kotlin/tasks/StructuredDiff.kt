@@ -185,21 +185,20 @@ class StructuredDiff : CliktCommand(help = "get difference in graph structure") 
         val nodeDiffFile = dir.resolve("node-diff.$extension")
         val difference = buildMap {
             graph.inverseVertexMap.forEach { (differenceVertex, vertex) ->
-                val name = vertex
                 when (differenceVertex.status) {
                     DifferenceStatus.FromLeft -> {
-                        val node = graphLeft.nodes[name]!!
-                        put(name, VertexWithType(name, node.size, node.type))
+                        val node = graphLeft.nodes[vertex]!!
+                        put(vertex, VertexWithType(vertex, node.size, node.type))
                     }
 
                     DifferenceStatus.FromRight -> {
-                        val node = graphRight.nodes[name]!!
-                        put(name, VertexWithType(name, node.size, node.type))
+                        val node = graphRight.nodes[vertex]!!
+                        put(vertex, VertexWithType(vertex, node.size, node.type))
                     }
 
                     DifferenceStatus.Both -> {
-                        val value = graphRight.nodes[name]!!.size - graphLeft.nodes[name]!!.size
-                        put(name, VertexWithType(name, value, graphRight.nodes[name]!!.type))
+                        val value = graphRight.nodes[vertex]!!.size - graphLeft.nodes[vertex]!!.size
+                        put(vertex, VertexWithType(vertex, value, graphRight.nodes[vertex]!!.type))
                     }
                 }
                 Unit

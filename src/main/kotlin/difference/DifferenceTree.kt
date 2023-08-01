@@ -115,7 +115,6 @@ class DifferenceTree private constructor(val parents: Map<String, String>, val n
                             val fromLeft = treeLeft.nodes[name] ?: error("Couldn't look up in left node $name")
                             val fromRight = treeRight.nodes[name] ?: error("Couldn't look up in right node $name")
                             val nameRemoved = "$name (removed)"
-                            val nameAdded = name
                             put(
                                 nameRemoved, DifferenceTreeVertex(
                                     name,
@@ -124,13 +123,13 @@ class DifferenceTree private constructor(val parents: Map<String, String>, val n
                                 )
                             )
                             put(
-                                nameAdded, DifferenceTreeVertex(
+                                name, DifferenceTreeVertex(
                                     name,
                                     DifferenceStatus.FromRight,
                                     fromRight.size
                                 )
                             )
-                            newParents[nameAdded] = parentRight!!
+                            newParents[name] = parentRight!!
                             newParents[nameRemoved] = parentLeft!!
                         }
                     }

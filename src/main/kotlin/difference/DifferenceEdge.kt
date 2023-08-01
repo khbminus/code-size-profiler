@@ -1,6 +1,5 @@
 package difference
 
-import graph.Edge
 
 data class DifferenceEdge(
     val from: DifferenceVertex,

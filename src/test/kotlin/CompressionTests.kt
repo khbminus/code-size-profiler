@@ -1,6 +1,5 @@
 import difference.DifferenceGraph
 import difference.DifferenceStatus
-import graph.Edge
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
 
