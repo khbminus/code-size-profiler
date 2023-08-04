@@ -9,5 +9,5 @@ class Profiler : CliktCommand(invokeWithoutSubcommand = false) {
 
 
 fun main(args: Array<String>) = Profiler()
-        .subcommands(Dominators(), Diff(), StructuredDiff(), sourceMaps)
+        .subcommands(Dominators(), Diff(), StructuredDiff(), sourceMaps, FilterVariable())
         .main(args)

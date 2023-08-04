@@ -24,6 +24,12 @@ difference of dominator trees and traversable difference of graphs. Moreover, it
 
 After it, you can start server with `scripts/server.sh` file.
 
+# Graph Compression
+
+You can use `filter-variable` command from kotlin application (by `./gradlew run --args='filter-variable'`) to compress
+DCE graph by removing variables and value parameters from edges. It stores the semantic by changing source vertexes of
+edges going from variables.
+
 # Traverse Graph
 
 This page allows seeing the DCE graph structure.
