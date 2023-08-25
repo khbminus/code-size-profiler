@@ -5,7 +5,7 @@ plugins {
 }
 
 group = "org.jetbrains.kotlin.wasm.sizeprofiler"
-version = "0.1"
+version = "1.9.0"
 
 repositories {
     mavenCentral()
@@ -14,7 +14,8 @@ repositories {
 dependencies {
     testImplementation(platform("org.junit:junit-bom:5.9.1"))
     testImplementation("org.junit.jupiter:junit-jupiter")
-    implementation(kotlin("gradle-plugin-api"))
+    runtimeOnly("org.jetbrains.kotlin.multiplatform:org.jetbrains.kotlin.multiplatform.gradle.plugin:1.9.0")
+    api(kotlin("gradle-plugin"))
 }
 
 tasks.test {
@@ -28,8 +29,9 @@ kotlin {
 gradlePlugin {
     plugins {
         create("wasm-code-size-profiler") {
-            id = "org.jetbrains.kotlin.wasm.sizeprofiler"
+            id = "org.jetbrains.kotlin.wasm.sizeprofiler.gradle-plugin"
             implementationClass = "org.jetbrains.kotlin.wasm.sizeprofiler.gradle.CodeSizeProfilerGradlePlugin"
+            version = project.version.toString()
         }
     }
 }
