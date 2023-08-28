@@ -1,12 +1,9 @@
 package org.jetbrains.kotlin.wasm.sizeprofiler.gradle
 
-import org.gradle.api.DefaultTask
 import org.gradle.api.Plugin
 import org.gradle.api.Project
-import org.jetbrains.kotlin.gradle.dsl.KotlinJvmOptions
 import org.jetbrains.kotlin.gradle.targets.js.ir.KotlinJsIrLink
 import org.jetbrains.kotlin.gradle.tasks.Kotlin2JsCompile
-import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 class CodeSizeProfilerGradlePlugin : Plugin<Project> {
     override fun apply(project: Project) {

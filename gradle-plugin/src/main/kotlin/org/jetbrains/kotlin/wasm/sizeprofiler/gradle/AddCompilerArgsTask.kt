@@ -18,9 +18,7 @@ abstract class AddCompilerArgsTask @Inject constructor() : DefaultTask() {
                     "-Xir-dce",
                     "-Xir-dce-dump-reachability-info-to-file=${buildDir.resolve("dce-graph.json")}",
                     "-Xir-dump-declaration-ir-sizes-to-file=${buildDir.resolve("ir-sizes.json")}",
-                    "-Xir-dce-print-reachability-info",
                     "-Xwasm-generate-wat",
-                    "-Xwasm-debug-info",
                     "-Xwasm-generate-wat-sourcemap",
                     "-Xwasm-dump-dce-declaration-ir-sizes-to-file=${buildDir.resolve("ir-sizes-extended.json")}",
                     "-Xdump-functions-location-in-wat-to-file=${buildDir.resolve("functions-wat.json")}"
