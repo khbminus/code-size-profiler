@@ -16,8 +16,8 @@ class DominatorsExecutor(
     irSizes: Map<String, VertexWithType>,
     removeUnknown: Boolean
 ) {
-    private val dominatorTree: DominatorTree
-    private val retainedSizes: Map<String, VertexWithType>
+    val dominatorTree: DominatorTree
+    val retainedSizes: Map<String, VertexWithType>
     private val json = Json { prettyPrint = true }
 
     init {

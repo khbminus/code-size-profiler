@@ -2,6 +2,8 @@ plugins {
     kotlin("jvm") version "1.9.0"
     `java-gradle-plugin`
     `maven-publish`
+    kotlin("plugin.serialization") version "1.9.0"
+
 }
 
 group = "org.jetbrains.kotlin.wasm.sizeprofiler"
@@ -14,9 +16,10 @@ repositories {
 dependencies {
     testImplementation(platform("org.junit:junit-bom:5.9.1"))
     testImplementation("org.junit.jupiter:junit-jupiter")
-    runtimeOnly("org.jetbrains.kotlin.multiplatform:org.jetbrains.kotlin.multiplatform.gradle.plugin:1.9.0")
+//    runtimeOnly("org.jetbrains.kotlin.multiplatform:org.jetbrains.kotlin.multiplatform.gradle.plugin:1.9.0")
     api(kotlin("gradle-plugin"))
-//    implementation(":profiler")
+    implementation(project(":core"))
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.5.1")
 }
 
 tasks.test {
