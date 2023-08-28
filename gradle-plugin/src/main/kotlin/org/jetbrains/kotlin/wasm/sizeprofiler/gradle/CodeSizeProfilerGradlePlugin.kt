@@ -1,35 +1,29 @@
 package org.jetbrains.kotlin.wasm.sizeprofiler.gradle
 
+import org.gradle.api.DefaultTask
 import org.gradle.api.Plugin
 import org.gradle.api.Project
-import org.gradle.api.provider.Provider
-import org.jetbrains.kotlin.gradle.plugin.*
+import org.jetbrains.kotlin.gradle.dsl.KotlinJvmOptions
+import org.jetbrains.kotlin.gradle.targets.js.ir.KotlinJsIrLink
+import org.jetbrains.kotlin.gradle.tasks.Kotlin2JsCompile
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 class CodeSizeProfilerGradlePlugin : Plugin<Project> {
     override fun apply(project: Project) {
+        project.tasks.register("processDump", DumpProcessingTask::class.java) {
+            val linkTask = project
+                .tasks
+                .withType(KotlinJsIrLink::class.java)
+                .firstOrNull { it.path == ":compileDevelopmentExecutableKotlinWasm" } ?: return@register
+            it.inputDir.set(linkTask.destinationDirectory.get())
+            it.dependsOn(linkTask)
+        }
 
+        val addArgsTask = project.tasks.create("addCompilerArgs", AddCompilerArgsTask::class.java)
+        project.tasks.withType(Kotlin2JsCompile::class.java).configureEach {
+            it.dependsOn(addArgsTask)
+        }
     }
 
-    private fun addCompilerArgs(project: Project) {
-        project.pluginManager.apply("org.jetbrains.kotlin.multiplatform")
-        val buildDir = project.buildDir
-        val profilerDumps = buildDir.resolve("code-size-profiler-dumps")
-        profilerDumps.mkdirs()
 
-        project.tasks.withType(KotlinCompile::class.java)
-            .configureEach {
-                it.kotlinOptions.freeCompilerArgs += listOf(
-                    "-Xir-dce",
-                    "-Xir-dce-dump-reachability-info-to-file=${profilerDumps.resolve("dce-graph.json")}",
-                    "-Xir-dump-declaration-ir-sizes-to-file=${profilerDumps.resolve("ir-sizes.json")}",
-                    "-Xir-dce-print-reachability-info",
-                    "-Xwasm-generate-wat",
-                    "-Xwasm-debug-info",
-                    "-Xwasm-generate-wat-sourcemap",
-                    "-Xwasm-dump-dce-declaration-ir-sizes-to-file=${profilerDumps.resolve("ir-sizes-extended.json")}",
-                    "-Xdump-functions-location-in-wat-to-file=${profilerDumps.resolve("functions-wat.json")}"
-                )
-            }
-    }
 }

@@ -16,6 +16,7 @@ dependencies {
     testImplementation("org.junit.jupiter:junit-jupiter")
     runtimeOnly("org.jetbrains.kotlin.multiplatform:org.jetbrains.kotlin.multiplatform.gradle.plugin:1.9.0")
     api(kotlin("gradle-plugin"))
+//    implementation(":profiler")
 }
 
 tasks.test {
