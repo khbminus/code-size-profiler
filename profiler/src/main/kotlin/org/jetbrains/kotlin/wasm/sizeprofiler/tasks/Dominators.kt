@@ -5,18 +5,13 @@ import com.github.ajalt.clikt.parameters.arguments.argument
 import com.github.ajalt.clikt.parameters.options.flag
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.types.file
-import org.jetbrains.kotlin.wasm.sizeprofiler.dominator.DeadNodesEliminationPreprocessor
-import org.jetbrains.kotlin.wasm.sizeprofiler.dominator.DominatorTree
-import org.jetbrains.kotlin.wasm.sizeprofiler.dominator.IdentityGraphPreprocessor
-import org.jetbrains.kotlin.wasm.sizeprofiler.graph.DirectedGraphWithMergedRoots
-import org.jetbrains.kotlin.wasm.sizeprofiler.graph.Edge
-import org.jetbrains.kotlin.wasm.sizeprofiler.graph.VertexWithType
-import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import org.jetbrains.kotlin.wasm.sizeprofiler.core.EdgeEntry
+import org.jetbrains.kotlin.wasm.sizeprofiler.core.execution.DominatorsExecutor
+import org.jetbrains.kotlin.wasm.sizeprofiler.core.graph.VertexWithType
 import java.io.File
 
 class Dominators : CliktCommand(help = "Build dominator tree and get retained size") {
-    private val json = Json { prettyPrint = true }
     private val irSizeFile by argument("<path-to/ir-sizes.json>").file(
         mustExist = true,
         mustBeReadable = true,
@@ -46,79 +41,24 @@ class Dominators : CliktCommand(help = "Build dominator tree and get retained si
     override fun run() {
         val edgeEntries = Json.decodeFromString<List<EdgeEntry>>(graphDataFile.readText())
         val sizes = Json.decodeFromString<Map<String, VertexWithType>>(irSizeFile.readText())
-        sizes.forEach { (k, v) -> v.name = k }
 
-        val nodes = sizes.toMutableMap()
-        val edges = edgeEntries.filter { it.source != it.target }
-            .filter { !removeUnknown || (it.source in nodes && it.target in nodes) }
-            .map {
-                val source = nodes.getOrPut(it.source) { VertexWithType(it.source, 0, "unknown") }
-                val target = nodes.getOrPut(it.target) { VertexWithType(it.target, 0, "unknown") }
-                Edge(source, target)
-            }
-        val roots = edgeEntries.filter { it.source == it.target }
-            .map { nodes.getOrPut(it.source) { VertexWithType(it.source, 0, "unknown") } }
-        val newGraph = DeadNodesEliminationPreprocessor()
-            .preprocessGraph(DirectedGraphWithMergedRoots.build(edges, roots))
-        nodes.clear()
-        nodes.putAll(newGraph.edges.flatMap { listOf(it.source, it.target) }.map { it.name to it })
-        val dominatorTree = DominatorTree.build(
-            newGraph,
-            IdentityGraphPreprocessor()
+        val dominatorExecutor = DominatorsExecutor(
+            edgeEntries = edgeEntries,
+            irSizes = sizes,
+            removeUnknown = removeUnknown
         )
-        val retainedSizes =
-            nodes.mapValues { (_, node) ->
-                VertexWithType(
-                    node.name,
-                    dominatorTree.getRetainedSize(node),
-                    node.type,
-                    node.displayName
-                )
-            }
+
         when (outputFile.determineExtension()) {
-            EXT.DISPLAY -> println(json.encodeToString(retainedSizes))
-            EXT.JSON -> outputFile?.writeText(Json.encodeToString(retainedSizes))
-            EXT.JS -> outputFile?.writeText(
-                """
-                | export const kotlinRetainedSize = ${Json.encodeToString(retainedSizes)}
-                """.trimMargin().trim()
-            )
+            EXT.DISPLAY -> dominatorExecutor.writeSizesToConsole()
+            EXT.JSON -> dominatorExecutor.writeSizesJSON(outputFile!!)
+            EXT.JS -> dominatorExecutor.writeSizesJS(outputFile!!)
         }
         if (isParentEdgeFormat) {
-            val parents = dominatorTree
-                .dominators
-                .mapKeys { (it, _) -> it.toString() }
-                .mapValues { (_, it) -> it.toString() }
             when (edgesFile.determineExtension()) {
-                EXT.DISPLAY -> Unit
-                EXT.JSON -> edgesFile?.writeText(Json.encodeToString(parents))
-                EXT.JS -> edgesFile?.writeText(
-                    """
-                | export const retainedTreeInfo = ${Json.encodeToString(parents)}
-                """.trimMargin().trim()
-                )
+                EXT.DISPLAY -> dominatorExecutor.writeEdgesToConsole()
+                EXT.JSON -> dominatorExecutor.writeEdgesJSON(outputFile!!)
+                EXT.JS -> dominatorExecutor.writeEdgesJs(outputFile!!)
             }
-        } else {
-            dominatorTree.printEdges(edgesFile)
-        }
-    }
-
-    private fun DominatorTree.printEdges(file: File?) {
-        val edges = adjacencyList
-            .asSequence()
-            .flatMap { (_, v) -> v }
-            .constrainOnce()
-            .filter { it.source != sourceVertex && it.target != sourceVertex }
-            .map { EdgeEntry(it.source.toString(), it.target.toString(), "", false) }
-            .toList()
-        when (file.determineExtension()) {
-            EXT.DISPLAY -> println(json.encodeToString(edges))
-            EXT.JSON -> edgesFile?.writeText(Json.encodeToString(edges))
-            EXT.JS -> edgesFile?.writeText(
-                """
-                | export const retainedReachibilityInfo = ${Json.encodeToString(edges)}
-                """.trimMargin().trim()
-            )
         }
     }
 

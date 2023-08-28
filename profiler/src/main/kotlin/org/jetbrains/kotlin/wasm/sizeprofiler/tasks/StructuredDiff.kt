@@ -5,18 +5,14 @@ import com.github.ajalt.clikt.parameters.arguments.argument
 import com.github.ajalt.clikt.parameters.options.flag
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.types.path
-import org.jetbrains.kotlin.wasm.sizeprofiler.difference.DifferenceGraph
-import org.jetbrains.kotlin.wasm.sizeprofiler.difference.DifferenceStatus
-import org.jetbrains.kotlin.wasm.sizeprofiler.difference.DifferenceTree
-import org.jetbrains.kotlin.wasm.sizeprofiler.graph.Edge
-import org.jetbrains.kotlin.wasm.sizeprofiler.graph.VertexWithType
-import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
-import java.nio.file.Path
+import org.jetbrains.kotlin.wasm.sizeprofiler.core.DifferenceTree
+import org.jetbrains.kotlin.wasm.sizeprofiler.core.execution.StructuralGraphDiffExecutor
+import org.jetbrains.kotlin.wasm.sizeprofiler.core.execution.StructuralTreeDiffExecutor
+import org.jetbrains.kotlin.wasm.sizeprofiler.core.graph.VertexWithType
 import kotlin.io.path.readText
 import kotlin.io.path.writeText
-import kotlin.system.measureTimeMillis
 
 class StructuredDiff : CliktCommand(help = "get difference in graph structure") {
     private val sizeFileLeft by argument("<left irNodes file>").path(
@@ -74,11 +70,8 @@ class StructuredDiff : CliktCommand(help = "get difference in graph structure") 
             Json.decodeFromString<Map<String, VertexWithType>>(sizeFileRight.readText()) + fakeSource,
             Json.decodeFromString<Map<String, String>>(graphDataRight.readText())
         )
-        lateinit var tree: DifferenceTree
-        val time = measureTimeMillis {
-            tree = DifferenceTree.build(treeLeft, treeRight)
-        }
-        println("Building compressing tree finished in $time ms")
+        val executor = StructuralTreeDiffExecutor(treeLeft, treeRight)
+
         val (extension, parentsPrefix, sizesPrefix) = if (jsOutput) listOf(
             "js",
             "export const diffTreeParents = ",
@@ -86,150 +79,21 @@ class StructuredDiff : CliktCommand(help = "get difference in graph structure") 
         ) else listOf("json", "", "")
         outputDirectory?.let {
             val parentsFile = it.resolve("parents.$extension")
-            parentsFile.writeText("$parentsPrefix${Json.encodeToString(tree.parents)}")
-
+            parentsFile.writeText("$parentsPrefix${Json.encodeToString(executor.differenceTree.parents)}")
             val nodesFile = it.resolve("ir-sizes.$extension")
-            nodesFile.writeText("$sizesPrefix${Json.encodeToString(tree.nodes)}")
+            nodesFile.writeText("$sizesPrefix${Json.encodeToString(executor.differenceTree.nodes)}")
         }
     }
 
     private fun compareGraph() {
-        val graphLeft = GraphData(sizeFileLeft, graphDataLeft)
-        val graphRight = GraphData(sizeFileRight, graphDataRight)
-        var compressionGraph: DifferenceGraph
-        val buildGraphTime = measureTimeMillis {
-            compressionGraph = DifferenceGraph.buildCompressionGraph(
-                graphLeft.edges, graphLeft.nodes.values.toList(),
-                graphRight.edges, graphRight.nodes.values.toList()
-            )
-        }
-        println("Constructing of compression graph finished in ${buildGraphTime}ms")
+        val graphLeft = StructuralGraphDiffExecutor.GraphData(sizeFileLeft, graphDataLeft)
+        val graphRight = StructuralGraphDiffExecutor.GraphData(sizeFileRight, graphDataRight)
+        val executor = StructuralGraphDiffExecutor(graphLeft, graphRight)
         if (metaNodeBuild) {
-            val time = measureTimeMillis {
-                compressionGraph.build()
-            }
-            println("Building compression graph finished in $time ms")
+            executor.buildMetaNodes()
         }
-        outputGraph(compressionGraph, graphLeft, graphRight)
+        outputDirectory?.toFile()?.let {
+            executor.outputGraph(it, jsOutput)
+        }
     }
-
-    private fun outputGraph(graph: DifferenceGraph, graphLeft: GraphData, graphRight: GraphData) {
-        val dir = outputDirectory?.toFile() ?: return
-        if (dir.exists() && dir.isFile) {
-            error("output directory is a file")
-        }
-        dir.mkdirs()
-        val extension = if (jsOutput) "js" else "json"
-        val metaNodesPrefix = if (jsOutput) "export const diffMetaNodesInfo = " else ""
-        val metaNodeFile = dir.resolve("metanodes.${extension}")
-        val metaNodes = graph.getMetaNodes()
-        val metaNodesNames = buildMap {
-            var counter = 1
-            metaNodes.values.toSet().forEach {
-                put(it, "MetaNode${counter++}")
-            }
-        }
-        metaNodeFile.writeText(metaNodesPrefix +
-                Json.encodeToString(
-                    MetaNodeDataEntry(
-                        graph.metaNodeAdjacencyList.keys.map { metaNodesNames[it]!! },
-                        metaNodes.mapKeys { (k, _) -> k }.mapValues { (_, v) -> metaNodesNames[v]!! }
-                    )
-                )
-        )
-        val nodesPrefix = if (jsOutput) "export const diffDeclarationsSizes = " else ""
-        val nodesFile = dir.resolve("ir-sizes.$extension")
-        val nodes = buildMap {
-            graph.metaNodeAdjacencyList.keys.forEach {
-                val children = it.children.map { graph.inverseVertexMap[it]!! }
-                val name = metaNodesNames[it]!!
-                val size = children.sumOf { nodeName ->
-                    (graphRight.nodes[nodeName]?.size ?: 0) - (graphLeft.nodes[nodeName]?.size ?: 0)
-                }
-                val type = when (it.status) {
-                    DifferenceStatus.Both -> "both"
-                    DifferenceStatus.FromRight -> "right"
-                    DifferenceStatus.FromLeft -> "left"
-                }
-                put(name, VertexWithType(name, size, type))
-            }
-            graph.inverseVertexMap.values.forEach { v ->
-                graphLeft.nodes[v]?.let { put(v, it) }
-                    ?: graphRight.nodes[v]?.let { put(v, it) }
-            }
-        }
-        nodesFile.writeText(nodesPrefix + Json.encodeToString(nodes))
-
-        val edgesPrefix = if (jsOutput) "export const diffReachibilityInfos =" else ""
-        val edgesFile = dir.resolve("dce-graph.$extension")
-        val edges = graph.metaNodeAdjacencyList.flatMap { (k, v) ->
-            v.map {
-                EdgeEntry(
-                    metaNodesNames[k]!!,
-                    metaNodesNames[it]!!,
-                    "Both",
-                    false
-                )
-            }
-        } + graph.edges.map {
-            EdgeEntry(
-                graph.inverseVertexMap[it.from]!!,
-                graph.inverseVertexMap[it.to]!!,
-                it.status.toString(),
-                false
-            )
-        }
-        edgesFile.writeText(edgesPrefix + Json.encodeToString(edges.toSet().toList()))
-
-        val nodeDiffPrefix = if (jsOutput) "export const diffDeclarationsDifference = " else ""
-        val nodeDiffFile = dir.resolve("node-diff.$extension")
-        val difference = buildMap {
-            graph.inverseVertexMap.forEach { (differenceVertex, vertex) ->
-                when (differenceVertex.status) {
-                    DifferenceStatus.FromLeft -> {
-                        val node = graphLeft.nodes[vertex]!!
-                        put(vertex, VertexWithType(vertex, node.size, node.type))
-                    }
-
-                    DifferenceStatus.FromRight -> {
-                        val node = graphRight.nodes[vertex]!!
-                        put(vertex, VertexWithType(vertex, node.size, node.type))
-                    }
-
-                    DifferenceStatus.Both -> {
-                        val value = graphRight.nodes[vertex]!!.size - graphLeft.nodes[vertex]!!.size
-                        put(vertex, VertexWithType(vertex, value, graphRight.nodes[vertex]!!.type))
-                    }
-                }
-                Unit
-            }
-        }
-        nodeDiffFile.writeText(nodeDiffPrefix + Json.encodeToString(difference))
-    }
-
-    private class GraphData(sizePath: Path, graphPath: Path) {
-        private val _nodes = Json
-            .decodeFromString<Map<String, VertexWithType>>(sizePath.readText()).toMutableMap()
-
-        init {
-            _nodes.forEach { (k, v) ->
-                v.name = k
-            }
-        }
-
-        val nodes: Map<String, VertexWithType>
-            get() = _nodes
-        val edges =
-            Json.decodeFromString<List<EdgeEntry>>(graphPath.readText()).filter { it.source != it.target }.map {
-                val source = _nodes.getOrPut(it.source) { VertexWithType(it.source, 0, "unknown") }
-                val target = _nodes.getOrPut(it.target) { VertexWithType(it.target, 0, "unknown") }
-                Edge(source, target)
-            }
-    }
-
-    @Serializable
-    private data class MetaNodeDataEntry(
-        val metaNodesList: List<String>,
-        val parent: Map<String, String>
-    )
 }

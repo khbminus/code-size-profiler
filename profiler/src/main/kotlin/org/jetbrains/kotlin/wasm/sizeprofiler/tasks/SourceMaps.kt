@@ -7,12 +7,11 @@ import com.github.ajalt.clikt.parameters.options.flag
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.types.file
 import com.github.ajalt.clikt.parameters.types.path
-import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
-import org.jetbrains.kotlin.wasm.sizeprofiler.sourcemaps.SourceMapFile
-import org.jetbrains.kotlin.wasm.sizeprofiler.sourcemaps.SourceMapSegment
-import java.io.File
+import org.jetbrains.kotlin.wasm.sizeprofiler.core.execution.BuildMappingExecutor
+import org.jetbrains.kotlin.wasm.sizeprofiler.core.sourcemaps.SourceMapFile
+import org.jetbrains.kotlin.wasm.sizeprofiler.core.sourcemaps.SourceMapSegment
 import java.nio.file.Path
 import kotlin.io.path.readText
 
@@ -49,48 +48,15 @@ class BuildKotlinWatSegments : CliktCommand(help = "test command. Will be remove
         mustBeReadable = true,
         canBeDir = false
     )
-
-    private val kotlinSourceMapFile by argument("<kotlin-wasm-map>", help = "kotlin-wasm source map").file(
-        mustBeReadable = true,
-        mustExist = true,
-        canBeDir = false
-    )
     private val outputFile by option("-o", help = "output file").file()
 
     override fun run() {
         val kotlinSegments = Json.decodeFromString<List<SourceMapSegment>>(kotlinSegmentsFile.readText())
         val watSegments = Json.decodeFromString<List<SourceMapSegment>>(watSegmentsFile.readText())
 
-        val kotlinSourceMap = Json.decodeFromString<SourceMapFile>(kotlinSourceMapFile.readText())
+        val executor = BuildMappingExecutor(kotlinSegments, watSegments)
 
-        val kotlinTexts = kotlinSourceMap.sources.mapIndexed { index, path ->
-            kotlinSourceMap.sourcesContent?.get(index)?.lines()
-                ?: File(path).takeIf{it.isFile && it.canRead() && it.exists()}?.readLines()
-        }
-
-        var currentWatSegmentIndex = 0
-        val matched = kotlinSegments.map { ktSegment ->
-            if (kotlinTexts[ktSegment.sourceFileIndex] == null) {
-                return@map null
-            }
-            while (currentWatSegmentIndex < watSegments.size && watSegments[currentWatSegmentIndex].startOffsetGenerated < ktSegment.startOffsetGenerated) {
-                currentWatSegmentIndex++
-            }
-            require(currentWatSegmentIndex < watSegments.size)
-            val startPosition = currentWatSegmentIndex
-            while (currentWatSegmentIndex < watSegments.size && watSegments[currentWatSegmentIndex].endOffsetGenerated <= ktSegment.endOffsetGenerated) {
-                currentWatSegmentIndex++
-            }
-            val watSegment = watSegments[startPosition].copy(
-                endOffsetGenerated = watSegments[currentWatSegmentIndex - 1].startOffsetGenerated,
-                endCursor = watSegments[currentWatSegmentIndex - 1].endCursor
-            )
-            MatchingSegment(ktSegment, watSegment)
-        }
-        outputFile?.writeText(Json.encodeToString(matched.filterNotNull()))
+        outputFile?.writeText(Json.encodeToString(executor.matchedSegments))
     }
-
-    @Serializable
-    data class MatchingSegment(val kotlinSegment: SourceMapSegment, val watSegment: SourceMapSegment)
 
 }

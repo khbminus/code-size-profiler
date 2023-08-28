@@ -1,3 +1,4 @@
 rootProject.name = "code-size-profiling"
-include("profiler")
-include("gradle-plugin")
+include(":profiler")
+include(":gradle-plugin")
+include(":core")
