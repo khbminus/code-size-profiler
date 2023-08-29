@@ -7,6 +7,7 @@ import org.jetbrains.kotlin.gradle.tasks.Kotlin2JsCompile
 
 class CodeSizeProfilerGradlePlugin : Plugin<Project> {
     override fun apply(project: Project) {
+        val downloadVisualization = project.tasks.register("downloadVisualization", VisualizationDownloaderTask::class.java)
         project.tasks.register("processDump", DumpProcessingTask::class.java) {
             val linkTask = project
                 .tasks

@@ -1,11 +1,13 @@
 plugins {
     id("java")
+    `maven-publish`
+    `java-library`
     kotlin("jvm") version "1.9.0"
     kotlin("plugin.serialization") version "1.9.0"
 }
 
 group = "org.jetbrains.kotlin.wasm.sizeprofiler"
-version = "1.0"
+version = "1.9.0"
 
 repositories {
     mavenCentral()
@@ -20,6 +22,14 @@ dependencies {
 
 kotlin {
     jvmToolchain(11)
+}
+
+publishing {
+    publications {
+        create<MavenPublication>("code-size-profiler-core") {
+            from(components["kotlin"])
+        }
+    }
 }
 
 tasks.test {
