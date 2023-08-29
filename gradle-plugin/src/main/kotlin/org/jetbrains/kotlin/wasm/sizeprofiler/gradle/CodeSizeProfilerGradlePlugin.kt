@@ -15,6 +15,7 @@ class CodeSizeProfilerGradlePlugin : Plugin<Project> {
                 .firstOrNull { it.path == ":compileDevelopmentExecutableKotlinWasm" } ?: return@register
             it.inputDir.set(linkTask.destinationDirectory.get())
             it.dependsOn(linkTask)
+            it.dependsOn(downloadVisualization)
         }
 
         val addArgsTask = project.tasks.create("addCompilerArgs", AddCompilerArgsTask::class.java)

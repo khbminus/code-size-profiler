@@ -2,6 +2,8 @@ package org.jetbrains.kotlin.wasm.sizeprofiler.gradle
 
 import org.jetbrains.kotlin.wasm.sizeprofiler.core.EdgeEntry
 import org.jetbrains.kotlin.wasm.sizeprofiler.core.graph.VertexWithType
+import org.jetbrains.kotlin.wasm.sizeprofiler.core.sourcemaps.SourceMapFile
+import java.nio.file.Path
 
 internal fun Map<String, VertexWithType>.fixDisplayName(): Map<String, VertexWithType> = this
     .mapValues { (_, v) ->
@@ -29,3 +31,10 @@ internal fun Map<String, VertexWithType>.restoreClassSizes(edges: List<EdgeEntry
         }
     return nextMap
 }
+
+internal fun SourceMapFile.fixPaths(fileLocation: Path, forKotlin: Boolean) = copy(sources = sources.map {
+    fileLocation.resolve(if (forKotlin) ".." else ".").resolve(it).normalize().toString()
+})
+internal fun DumpProcessingTask.SourceMapDump.fixPaths(fileLocation: Path, forKotlin: Boolean) = copy(sources = sources.map {
+    fileLocation.resolve(if (forKotlin) ".." else ".").resolve(it).normalize().toString()
+})
