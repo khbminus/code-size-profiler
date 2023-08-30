@@ -20,18 +20,18 @@ class CodeSizeProfilerGradlePlugin : Plugin<Project> {
         }
 
         val npmInstallTask = project.tasks.register("visualizationNPMInstall", Exec::class.java) {
-            it.workingDir = project.buildDir.resolve(VisualizationDownloaderTask.appLocation)
+            it.workingDir = project.buildDir.resolve(VisualizationDownloaderTask.APP_LOCATION)
             it.commandLine = listOf("npm", "install", "--quiet", "--no-audit", "--no-fund")
             it.dependsOn(downloadVisualization)
         }
         val buildVisualizationTask = project.tasks.register("buildVisualization", Exec::class.java) {
-            it.workingDir = project.buildDir.resolve(VisualizationDownloaderTask.appLocation)
+            it.workingDir = project.buildDir.resolve(VisualizationDownloaderTask.APP_LOCATION)
             it.commandLine = listOf("npm", "run", "build")
             it.dependsOn(npmInstallTask)
             it.dependsOn(processDumpTask)
         }
         project.tasks.register("runVisualization", Exec::class.java) {
-            it.workingDir = project.buildDir.resolve(VisualizationDownloaderTask.appLocation)
+            it.workingDir = project.buildDir.resolve(VisualizationDownloaderTask.APP_LOCATION)
             it.commandLine = listOf("npm", "start")
             it.dependsOn(buildVisualizationTask)
         }

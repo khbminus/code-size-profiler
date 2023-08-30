@@ -12,7 +12,6 @@ import org.jetbrains.kotlin.wasm.sizeprofiler.core.execution.BuildMappingExecuto
 import org.jetbrains.kotlin.wasm.sizeprofiler.core.execution.DominatorsExecutor
 import org.jetbrains.kotlin.wasm.sizeprofiler.core.execution.FilterExecutor
 import org.jetbrains.kotlin.wasm.sizeprofiler.core.graph.VertexWithType
-import org.jetbrains.kotlin.wasm.sizeprofiler.core.sourcemaps.CodeMapping
 import org.jetbrains.kotlin.wasm.sizeprofiler.core.sourcemaps.SourceMapFile
 import java.io.File
 
@@ -21,7 +20,7 @@ abstract class DumpProcessingTask : DefaultTask() {
     @get:InputDirectory
     abstract val inputDir: DirectoryProperty
 
-    private val visualizationLocation = project.buildDir.resolve(VisualizationDownloaderTask.appLocation)
+    private val visualizationLocation = project.buildDir.resolve(VisualizationDownloaderTask.APP_LOCATION)
     private val profileDataLocation = visualizationLocation.resolve("profile-data")
     private val sourceMapsLocation = visualizationLocation.resolve("source-maps")
 
@@ -61,6 +60,7 @@ abstract class DumpProcessingTask : DefaultTask() {
         }
         val edges = Json.decodeFromString<List<EdgeEntry>>(dceGraphFile.readText()).let {
             if (irSizesExtendedFile.exists()) {
+                logger.lifecycle("Compressing edges...")
                 val extendedIrSizes = Json.decodeFromString<Map<String, VertexWithType>>(irSizesFile.readText())
                     .onEach { (k, v) -> v.name = k }
                 filterEdges(extendedIrSizes, it)
@@ -108,6 +108,7 @@ abstract class DumpProcessingTask : DefaultTask() {
     }
 
     private fun dumpSourceMaps(sourceMapFile: File, watSourceMapFile: File, functionLocationsFile: File) {
+        logger.lifecycle("Dump sourcemaps...")
         val sourceMap = Json
             .decodeFromString<SourceMapFile>(sourceMapFile.readText())
             .fixPaths(sourceMapFile.parentFile.toPath(), forKotlin = true)

@@ -1,6 +1,7 @@
 package org.jetbrains.kotlin.wasm.sizeprofiler.gradle
 
 import org.gradle.api.DefaultTask
+import org.gradle.api.tasks.OutputDirectory
 import org.gradle.api.tasks.TaskAction
 import java.io.File
 import java.io.FileOutputStream
@@ -13,11 +14,11 @@ abstract class VisualizationDownloaderTask : DefaultTask() {
 
     @TaskAction
     fun downloadVisualization() {
-        if (visualizationLocation.resolve(appLocation).exists()) {
+        if (visualizationLocation.resolve(outputLocation).exists()) {
             logger.info("Found existing visualization. Removing")
-            visualizationLocation.resolve(appLocation).deleteRecursively()
+            visualizationLocation.resolve(outputLocation).deleteRecursively()
         }
-        val visualizationURL = URL(zipFilePath)
+        val visualizationURL = URL(ZIP_FILE_PATH)
 
         val zipStream = ZipInputStream(visualizationURL.openStream())
         val buffer = ByteArray(BUFFER_SIZE)
@@ -46,6 +47,10 @@ abstract class VisualizationDownloaderTask : DefaultTask() {
         }
     }
 
+    @get:OutputDirectory
+    val outputLocation: File
+        get() = visualizationLocation.resolve(APP_LOCATION)
+
     private fun createNewFile(zipEntry: ZipEntry) = File(visualizationLocation, zipEntry.name).also {
         if (ensureZipSlip(it)) {
             error("Can't create files outside root directory. The ZIP archive is corrupted or contains zip Slip vulnerability")
@@ -71,9 +76,10 @@ abstract class VisualizationDownloaderTask : DefaultTask() {
     }
 
     companion object {
-        private const val zipFilePath =
-            "https://github.com/khbminus/code-size-profiling-visualization/archive/refs/heads/master.zip"
+        private const val COMMIT = "43f084d73b703c526fb6b6d50acf79b58484df7b"
+        private const val ZIP_FILE_PATH =
+            "https://github.com/khbminus/code-size-profiling-visualization/archive/$COMMIT.zip"
         private const val BUFFER_SIZE = 4096
-        const val appLocation = "code-size-profiling-visualization-master"
+        const val APP_LOCATION = "code-size-profiling-visualization-$COMMIT"
     }
 }
