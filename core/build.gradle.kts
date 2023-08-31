@@ -1,7 +1,5 @@
 plugins {
     id("java")
-    `maven-publish`
-    `java-library`
     kotlin("jvm") version "1.9.0"
     kotlin("plugin.serialization") version "1.9.0"
 }
@@ -22,14 +20,6 @@ dependencies {
 
 kotlin {
     jvmToolchain(11)
-}
-
-publishing {
-    publications {
-        create<MavenPublication>("code-size-profiler-core") {
-            from(components["kotlin"])
-        }
-    }
 }
 
 tasks.test {
