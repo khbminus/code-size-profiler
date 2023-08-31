@@ -3,7 +3,7 @@ plugins {
     `java-gradle-plugin`
     id("com.gradle.plugin-publish") version "1.1.0"
     kotlin("plugin.serialization") version "1.9.0"
-    java
+//    java
     id("com.github.johnrengelman.shadow") version "8.1.1"
 }
 
@@ -22,10 +22,12 @@ tasks.shadowJar {
 dependencies {
     testImplementation(platform("org.junit:junit-bom:5.9.1"))
     testImplementation("org.junit.jupiter:junit-jupiter")
-    shadow(kotlin("gradle-plugin"))
-    shadow(gradleApi())
 
+    shadow(gradleApi())
     implementation(project(":core"))
+    compileOnly("org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.0")
+    compileOnly("org.jetbrains.kotlin:kotlin-stdlib:1.9.0")
+    shadow("org.jetbrains.kotlin:kotlin-gradle-plugin-api:1.9.0")
     shadow("org.jetbrains.kotlinx:kotlinx-serialization-json:1.5.1")
 }
 
