@@ -26,7 +26,7 @@ dependencies {
     shadow(gradleApi())
 
     implementation(project(":core"))
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.5.1")
+    shadow("org.jetbrains.kotlinx:kotlinx-serialization-json:1.5.1")
 }
 
 tasks.test {
